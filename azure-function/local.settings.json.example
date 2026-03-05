@@ -1,0 +1,9 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "FLOWGEAR_API_BASE": "https://app.flowgear.net",
+    "FLOWGEAR_API_TOKEN": "your-flowgear-token-api-key"
+  }
+}

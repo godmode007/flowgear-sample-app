@@ -1,5 +1,11 @@
 @import "flowgear-webapp/dist/css/app.css";
 
+/* CCH brand colours */
+$cch-blue: #00298B;
+$cch-blue-dark: #001f6b;
+$cch-blue-light: #80CEEF;
+$cch-blue-light-bg: #d4eef9;
+
 html {
     height: 100%;
 }
@@ -16,7 +22,7 @@ body {
 }
 
 .refresh-button:focus {
-  border-color: #009688 !important;
+  border-color: $cch-blue !important;
 }
 
 .app-contentarea {
@@ -24,6 +30,511 @@ body {
     padding: 0 30px;
 }
 
+.receipt-app-nav {
+    background: $cch-blue-light-bg !important;
+    border-bottom: 1px solid rgba(0, 41, 139, 0.15);
+}
+
+.receipt-app-nav .navbar-text {
+    color: $cch-blue-dark;
+    font-weight: 600;
+}
+
+/* ---------- Outlook-style split: orders list left, editor right ---------- */
+.receipt-auth-failed-banner {
+    flex-shrink: 0;
+}
+
+.receipt-split-container {
+    display: flex;
+    height: calc(100vh - 50px);
+    margin-top: 0;
+    overflow: hidden;
+}
+
+.receipt-split-left {
+    width: 280px;
+    min-width: 280px;
+    border-right: 1px solid #dee2e6;
+    background: #f1f3f5;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.receipt-split-right {
+    flex: 1;
+    overflow: auto;
+    background: #fff;
+}
+
+.receipt-orders-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.receipt-orders-panel-header {
+    padding: 12px;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: #fff;
+}
+
+.receipt-orders-panel-title {
+    font-weight: 600;
+    color: $cch-blue-dark;
+}
+
+.receipt-orders-refresh {
+    flex-shrink: 0;
+}
+
+.receipt-orders-list-status {
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #495057;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.receipt-orders-list-status div {
+    margin: 2px 0;
+}
+
+.receipt-orders-list {
+    list-style: none;
+    margin: 0;
+    padding: 8px 0;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.receipt-orders-empty {
+    padding: 12px;
+    color: #6c757d;
+    font-size: 13px;
+}
+
+.receipt-orders-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #e9ecef;
+    transition: background 0.15s ease;
+}
+
+.receipt-orders-item:hover {
+    background: #e9ecef;
+}
+
+.receipt-orders-item-selected {
+    background: $cch-blue-light-bg;
+    border-left: 3px solid $cch-blue;
+    margin-left: 0;
+}
+
+.receipt-orders-item-label {
+    font-weight: 500;
+    font-size: 13px;
+    color: #212529;
+}
+
+.receipt-orders-item-sub {
+    font-size: 12px;
+    color: #6c757d;
+    margin-top: 2px;
+}
+
+/* ---------- Spreadsheet-style receipt sheet (CCH brand blue) ---------- */
+.receipt-sheet {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    max-width: 100%;
+}
+
+.receipt-sheet-header {
+    background: $cch-blue;
+    color: #fff;
+    padding: 12px 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+}
+
+.receipt-sheet-header-logo {
+    flex-shrink: 0;
+}
+
+.receipt-sheet-header-logo img {
+    display: block;
+    height: 40px;
+    width: auto;
+    max-width: 180px;
+    object-fit: contain;
+}
+
+.receipt-sheet-header-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.receipt-sheet-title {
+    margin: 0 0 10px 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.receipt-sheet-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+    font-size: 0.875rem;
+    opacity: 0.95;
+}
+
+.receipt-sheet-meta span {
+    white-space: nowrap;
+}
+
+.receipt-sheet-alert {
+    margin: 12px 20px 0;
+    border-radius: 4px;
+}
+
+.receipt-table-wrap {
+    margin: 16px 20px;
+    background: #fff;
+    border: 1px solid #c5c5c5;
+    border-radius: 2px;
+    overflow: auto;
+    max-height: 60vh;
+}
+
+.receipt-sheet-powered {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin: 0 20px 12px 0;
+    font-size: 11px;
+    color: #6c757d;
+}
+
+.receipt-sheet-powered img {
+    height: 28px;
+    width: auto;
+    max-width: 120px;
+    object-fit: contain;
+}
+
+.receipt-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.receipt-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.receipt-th {
+    background: $cch-blue;
+    color: #fff;
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 12px;
+    border: 1px solid $cch-blue-dark;
+    white-space: nowrap;
+}
+
+.receipt-th.receipt-th-num,
+.receipt-th.receipt-th-rate,
+.receipt-th.receipt-th-price {
+    text-align: right;
+}
+
+.receipt-tr {
+    background: #fff;
+}
+
+.receipt-tr:nth-child(even) {
+    background: #f5f9f5;
+}
+
+.receipt-tr:hover {
+    background: #e8f4e8;
+}
+
+.receipt-tr-total {
+    background: $cch-blue-light-bg;
+    border-top: 2px solid $cch-blue;
+}
+
+.receipt-tr-total .receipt-td {
+    font-weight: 500;
+}
+
+.receipt-td {
+    padding: 8px 12px;
+    border: 1px solid #d4d4d4;
+    vertical-align: middle;
+}
+
+.receipt-td-line {
+    width: 4em;
+    font-weight: 500;
+}
+
+.receipt-td-item {
+    min-width: 120px;
+}
+
+.receipt-td-desc {
+    min-width: 140px;
+    max-width: 240px;
+}
+
+.receipt-td-inv {
+    min-width: 90px;
+}
+
+.receipt-td-num {
+    min-width: 5em;
+}
+
+.receipt-td-rate {
+    min-width: 110px;
+}
+
+.receipt-td-price {
+    min-width: 100px;
+}
+
+.receipt-td-calculated {
+    font-variant-numeric: tabular-nums;
+    color: $cch-blue;
+}
+
+.receipt-input-price {
+    width: 100%;
+    max-width: 120px;
+    padding: 6px 10px;
+    border: 1px solid $cch-blue;
+    border-radius: 3px;
+    font-size: 13px;
+    text-align: right;
+    background: #fff;
+    box-sizing: border-box;
+}
+
+.receipt-input-price:focus {
+    outline: none;
+    border-color: $cch-blue-dark;
+    box-shadow: 0 0 0 2px rgba(0, 41, 139, 0.25);
+}
+
+.receipt-input-price::placeholder {
+    color: #6c757d;
+}
+
+.receipt-sheet-footer {
+    padding: 14px 20px;
+    background: $cch-blue-light-bg;
+    border-top: 1px solid rgba(0, 41, 139, 0.2);
+}
+
+.receipt-sheet-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Receipt footer buttons – own classes so same look in debug and standalone (no Flowgear .btn-command) */
+.receipt-btn {
+    min-height: 38px;
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+    width: auto;
+    box-sizing: border-box;
+}
+
+.receipt-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.receipt-btn-primary {
+    background: $cch-blue;
+    border-color: $cch-blue-dark;
+    color: #fff;
+}
+
+.receipt-btn-primary:hover:not(:disabled) {
+    background: $cch-blue-dark;
+    border-color: $cch-blue-dark;
+    color: #fff;
+}
+
+.receipt-btn-secondary {
+    background: #fff;
+    border-color: $cch-blue;
+    color: $cch-blue;
+}
+
+.receipt-btn-secondary:hover:not(:disabled) {
+    background: rgba(0, 41, 139, 0.08);
+    border-color: $cch-blue-dark;
+    color: $cch-blue-dark;
+}
+
+.receipt-status-section {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(0, 41, 139, 0.15);
+}
+
+.receipt-status-heading {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6c757d;
+    margin-bottom: 6px;
+}
+
+.receipt-status-log {
+    font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    max-height: 180px;
+    overflow-y: auto;
+    padding: 8px 10px;
+    background: #f1f3f5;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+}
+
+.receipt-status-line {
+    word-break: break-word;
+}
+
+.receipt-debug-payload-section {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(0, 41, 139, 0.15);
+}
+
+.receipt-debug-payload-heading {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.receipt-debug-payload-json {
+    font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    max-height: 320px;
+    overflow: auto;
+    padding: 12px;
+    margin: 0;
+    background: #f1f3f5;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+[data-theme="dark-theme-ci"] .receipt-status-log,
+.theme-dark .receipt-status-log {
+    background: #22272e;
+    border-color: #444c56;
+    color: #adbac7;
+}
+
+[data-theme="dark-theme-ci"] .receipt-debug-payload-json,
+.theme-dark .receipt-debug-payload-json {
+    background: #22272e;
+    border-color: #444c56;
+    color: #adbac7;
+}
+
+/* Dark theme overrides for receipt sheet */
+[data-theme="dark-theme-ci"] .receipt-sheet,
+.theme-dark .receipt-sheet {
+    background: #2d3338;
+    border-color: #444c56;
+}
+
+[data-theme="dark-theme-ci"] .receipt-sheet-header,
+.theme-dark .receipt-sheet-header {
+    background: $cch-blue-dark;
+}
+
+[data-theme="dark-theme-ci"] .receipt-table-wrap,
+.theme-dark .receipt-table-wrap {
+    background: #22272e;
+    border-color: #444c56;
+}
+
+[data-theme="dark-theme-ci"] .receipt-tr,
+.theme-dark .receipt-tr {
+    background: #22272e;
+}
+
+[data-theme="dark-theme-ci"] .receipt-tr:nth-child(even),
+.theme-dark .receipt-tr:nth-child(even) {
+    background: #2d3338;
+}
+
+[data-theme="dark-theme-ci"] .receipt-tr:hover,
+.theme-dark .receipt-tr:hover {
+    background: #373e47;
+}
+
+[data-theme="dark-theme-ci"] .receipt-td,
+.theme-dark .receipt-td {
+    border-color: #444c56;
+}
+
+[data-theme="dark-theme-ci"] .receipt-input-price,
+.theme-dark .receipt-input-price {
+    background: #1c2128;
+    border-color: $cch-blue;
+    color: #adbac7;
+}
+
+[data-theme="dark-theme-ci"] .receipt-sheet-footer,
+.theme-dark .receipt-sheet-footer {
+    background: rgba(0, 41, 139, 0.25);
+    border-top-color: rgba(0, 41, 139, 0.4);
+}
+
+[data-theme="dark-theme-ci"] .receipt-td-calculated,
+.theme-dark .receipt-td-calculated {
+    color: $cch-blue-light;
+}
+
+/* Legacy table (other pages) */
 table {
     width: 100%;
     border: 1px solid #ddd;
@@ -31,20 +542,6 @@ table {
 }
 
 [data-theme="dark-theme-ci"] table {
-    border-color: #3f4947 !important;
-}
-
-table th,
-table td {
-    text-align: center;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    white-space: nowrap;
-    padding: 8px;
-}
-
-[data-theme="dark-theme-ci"] table th,
-[data-theme="dark-theme-ci"] table td {
     border-color: #3f4947 !important;
 }
 

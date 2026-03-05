@@ -25,3 +25,12 @@ dist-ssr
 # Local certs
 localhost*.pem
 certs/
+
+# Azure Function local settings (secrets)
+azure-function/local.settings.json
+
+# Local env (secrets)
+.env.local
+
+# Publish ZIPs (build artifacts)
+ReceiptConfirmationApp-*.zip

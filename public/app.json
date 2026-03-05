@@ -1,6 +1,6 @@
 {
-  "Name": "FlowgearSampleApp",
-  "Version": "0.0.0.1",
-  "DisplayName": "Flowgear Sample App",
+  "Name": "ReceiptConfirmationApp",
+  "Version": "1.0.0.6",
+  "DisplayName": "CCH Price Capture Tool",
   "Rank": 1
 }

@@ -1,0 +1,21 @@
+{
+  "name": "receipt-confirmation-api",
+  "version": "1.0.0",
+  "description": "Azure Function that forwards receipt payload to Flowgear",
+  "main": "dist/functions/postReceipt.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "func start",
+    "prestart": "npm run build"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "~5.6.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
