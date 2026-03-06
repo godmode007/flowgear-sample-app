@@ -163,7 +163,7 @@ export default function ReceiptEditor({
       <div className="receipt-sheet">
         <header className="receipt-sheet-header">
           <div className="receipt-sheet-header-logo">
-            <img src={`${import.meta.env.BASE_URL}CCH Logo.png`} alt="CCH" />
+            <img src={`${import.meta.env.BASE_URL}CCH Logo.png?v=2`} alt="CCH" />
           </div>
           <div className="receipt-sheet-header-content">
             <h1 className="receipt-sheet-title">Receipt confirmation – Order price entry</h1>
