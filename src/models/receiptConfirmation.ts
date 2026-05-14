@@ -155,6 +155,75 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+export function compareReceiptLineNoAsc(a: string, b: string): number {
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+}
+
+/**
+ * Primary receipt date for list filtering: prefers Date_Identifier RD, otherwise first Dates entry.
+ */
+export function getReceiptDetailDateForFilter(payload: ReceiptConfirmationPayload): string | null {
+  const dates = payload.Receipt_Confirmation.Date_Details?.Dates ?? [];
+  const rd = dates.find((d) => (d.Date_Identifier ?? "").trim().toUpperCase() === "RD");
+  const chosen = rd ?? dates[0];
+  const raw = chosen?.Date?.trim();
+  return raw && raw.length > 0 ? raw : null;
+}
+
+/**
+ * When leaving line-detail view, set each item-code group's Order_Price to the average of captured line rates
+ * where the group had more than one distinct non-null price. Returns row keys matching consolidated UI (`item-{Item_Code}`).
+ */
+export function averageGroupedLineRatesInPayload(payload: ReceiptConfirmationPayload): {
+  payload: ReceiptConfirmationPayload;
+  averagedGroupKeys: string[];
+} {
+  const items = payload.Receipt_Confirmation.Items ?? [];
+  const visible = [...items]
+    .filter((item) => !isZeroOutLine(item))
+    .sort((a, b) => compareReceiptLineNoAsc(a.Line_No, b.Line_No));
+  const groups = new Map<string, ReceiptConfirmationItem[]>();
+  for (const item of visible) {
+    const k = (item.Item_Code ?? "").trim().toUpperCase();
+    const g = groups.get(k);
+    if (g == null) groups.set(k, [item]);
+    else g.push(item);
+  }
+
+  const averagedGroupKeys: string[] = [];
+  const lineNoToPrice = new Map<string, number>();
+
+  for (const groupItems of groups.values()) {
+    const priced = groupItems.map((i) => i.Order_Price).filter((v): v is number => v != null);
+    if (priced.length === 0) continue;
+    const distinct = new Set(priced);
+    if (distinct.size <= 1) continue;
+    const avg = round2(priced.reduce((a, b) => a + b, 0) / priced.length);
+    averagedGroupKeys.push(`item-${groupItems[0].Item_Code}`);
+    for (const item of groupItems) {
+      lineNoToPrice.set(item.Line_No, avg);
+    }
+  }
+
+  if (lineNoToPrice.size === 0) {
+    return { payload, averagedGroupKeys: [] };
+  }
+
+  return {
+    payload: {
+      ...payload,
+      Receipt_Confirmation: {
+        ...payload.Receipt_Confirmation,
+        Items: items.map((item) => {
+          const np = lineNoToPrice.get(item.Line_No);
+          return np !== undefined ? { ...item, Order_Price: np } : item;
+        }),
+      },
+    },
+    averagedGroupKeys,
+  };
+}
+
 /**
  * Normalizes list entry: derive rate (R/UOM) from Gross_Price or Order_Price when those represent line totals.
  */

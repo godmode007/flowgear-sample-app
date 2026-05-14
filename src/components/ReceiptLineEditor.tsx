@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 
 interface ReceiptLineEditorProps {
   rowKey: string;
@@ -12,12 +12,26 @@ interface ReceiptLineEditorProps {
   holdCode?: string;
   rate: number | null;
   rateReadOnly?: boolean;
+  rateIsAveraged?: boolean;
   isWeightBased: boolean;
   onOrderPriceChange: (value: number | null) => void;
 }
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+function formatRateFromNumber(rate: number | null): string {
+  if (rate == null) return "";
+  return String(round2(rate));
+}
+
+/** Allows in-progress decimals like "24.01" without forcing round2 on each keystroke. */
+function tryParseRateDraft(draft: string): number | null {
+  const v = draft.trim().replace(",", ".");
+  if (v === "" || v === "." || v === "-") return null;
+  const r = parseFloat(v);
+  return Number.isNaN(r) ? null : r;
 }
 
 export default function ReceiptLineEditor({
@@ -32,27 +46,46 @@ export default function ReceiptLineEditor({
   holdCode,
   rate,
   rateReadOnly = false,
+  rateIsAveraged = false,
   isWeightBased,
   onOrderPriceChange,
 }: ReceiptLineEditorProps) {
-  const rateDisplay = rate != null ? String(round2(rate)) : "";
+  const [draft, setDraft] = useState(() => formatRateFromNumber(rate));
+  const focusedRef = useRef(false);
+
+  useEffect(() => {
+    if (!focusedRef.current) {
+      setDraft(formatRateFromNumber(rate));
+    }
+  }, [rate, rowKey]);
 
   const displayTotal = useMemo(() => {
-    if (rate == null) return null;
-    if (isWeightBased) return round2(rate * netWeight);
-    return round2(rate * quantity);
-  }, [rate, isWeightBased, netWeight, quantity]);
+    const fromDraft = tryParseRateDraft(draft);
+    const eff = fromDraft ?? rate;
+    if (eff == null) return null;
+    if (isWeightBased) return round2(eff * netWeight);
+    return round2(eff * quantity);
+  }, [draft, rate, isWeightBased, netWeight, quantity]);
 
-  function handleRateChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const v = e.target.value.trim();
-    if (v === "") {
+  function commitDraft() {
+    const v = draft.trim().replace(",", ".");
+    if (v === "" || v === "." || v === "-") {
       onOrderPriceChange(null);
+      setDraft("");
       return;
     }
     const r = parseFloat(v);
-    if (!Number.isNaN(r)) {
-      onOrderPriceChange(round2(r));
+    if (Number.isNaN(r)) {
+      setDraft(formatRateFromNumber(rate));
+      return;
     }
+    const rounded = round2(r);
+    onOrderPriceChange(rounded);
+    setDraft(String(rounded));
+  }
+
+  function handleDraftChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setDraft(e.target.value);
   }
 
   return (
@@ -73,19 +106,42 @@ export default function ReceiptLineEditor({
             className="receipt-rate-readonly"
             title="Another tab may be editing this receipt. Close it or wait for the lock to clear."
           >
-            {rateDisplay || "—"}
+            {rate != null ? formatRateFromNumber(rate) : "—"}
+            {rateIsAveraged ? <span className="receipt-rate-asterisk"> *</span> : null}
           </span>
         ) : (
-          <input
-            type="number"
-            step="any"
-            min="0.01"
-            className="receipt-input-price"
-            placeholder="0.00"
-            value={rateDisplay}
-            onChange={handleRateChange}
-            aria-label={`Rate (R per UOM) for line ${lineLabel}`}
-          />
+          <span
+            className={`receipt-rate-input-wrap${rateIsAveraged ? " receipt-rate-input-wrap-averaged" : ""}`}
+            title={rateIsAveraged ? "Average of line prices captured" : undefined}
+          >
+            {rateIsAveraged ? (
+              <span className="receipt-rate-asterisk" aria-hidden>
+                *
+              </span>
+            ) : null}
+            <input
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              className={`receipt-input-price${rateIsAveraged ? " receipt-input-price-averaged" : ""}`}
+              placeholder="0.00"
+              value={draft}
+              onChange={handleDraftChange}
+              onFocus={() => {
+                focusedRef.current = true;
+              }}
+              onBlur={() => {
+                focusedRef.current = false;
+                commitDraft();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+              aria-label={`Rate (R per UOM) for line ${lineLabel}`}
+            />
+          </span>
         )}
       </td>
       <td className="receipt-td receipt-td-price text-align-right receipt-td-calculated">

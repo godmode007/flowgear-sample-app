@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Flowgear } from "flowgear-webapp";
 
 const { AlertMessageTypes, AlertDismissOptions, ConfirmResult } = Flowgear.Sdk;
@@ -8,16 +8,14 @@ import {
   hasMissingOrderPrice,
   hasInvalidOrderPrice,
   isZeroOutLine,
+  compareReceiptLineNoAsc,
+  averageGroupedLineRatesInPayload,
 } from "../models/receiptConfirmation";
 import { postToErp, isStandaloneMode } from "../services/payloadService";
 import ReceiptLineEditor from "./ReceiptLineEditor";
 
 const MAX_STATUS_LINES = 25;
 const isDev = import.meta.env.DEV;
-
-function compareLineNoAsc(a: string, b: string): number {
-  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
-}
 
 interface ReceiptEditorProps {
   initialPayload: ReceiptConfirmationPayload | null;
@@ -39,6 +37,7 @@ interface ReceiptDisplayRow {
   netWeight: number;
   uom: string;
   rate: number | null;
+  rateIsAveraged?: boolean;
   isWeightBased: boolean;
   sourceLineNos: string[];
 }
@@ -52,6 +51,9 @@ export default function ReceiptEditor({
   foreignSessionLockActive = false,
 }: ReceiptEditorProps) {
   const [payload, setPayload] = useState<ReceiptConfirmationPayload | null>(initialPayload);
+  const payloadRef = useRef<ReceiptConfirmationPayload | null>(initialPayload);
+  const prevLineDetailsRef = useRef(false);
+  const [averagedRateRowKeys, setAveragedRateRowKeys] = useState<Record<string, boolean>>({});
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [postSuccessMessage, setPostSuccessMessage] = useState<string | null>(null);
@@ -87,28 +89,62 @@ export default function ReceiptEditor({
   }, [appendStatus]);
 
   useEffect(() => {
+    payloadRef.current = payload;
+  }, [payload]);
+
+  useEffect(() => {
     setShowTargetPayloadView(false);
     setShowSourcePayloadView(false);
     setShowLineDetails(false);
+    setAveragedRateRowKeys({});
   }, [initialPayload, targetPayloadBase64, sourcePayloadBase64]);
 
-  const updateOrderPrice = useCallback(
-    (lineNos: string[], value: number | null) => {
-      if (payload == null) return;
+  useEffect(() => {
+    const prev = prevLineDetailsRef.current;
+    prevLineDetailsRef.current = showLineDetails;
+    if (showLineDetails) {
+      setAveragedRateRowKeys({});
+      return;
+    }
+    if (!prev) return;
+    const p = payloadRef.current;
+    if (p == null) return;
+    const { payload: next, averagedGroupKeys } = averageGroupedLineRatesInPayload(p);
+    setPayload(next);
+    setAveragedRateRowKeys(
+      averagedGroupKeys.length > 0 ? Object.fromEntries(averagedGroupKeys.map((k) => [k, true])) : {}
+    );
+  }, [showLineDetails]);
+
+  const updateOrderPrice = useCallback((lineNos: string[], value: number | null) => {
+    setPayload((prev) => {
+      if (prev == null) return prev;
       const lineNoSet = new Set(lineNos);
-      setPayload({
-        ...payload,
+      const codes = new Set(
+        prev.Receipt_Confirmation.Items.filter((i) => lineNoSet.has(i.Line_No)).map((i) => i.Item_Code)
+      );
+      queueMicrotask(() => {
+        setAveragedRateRowKeys((ar) => {
+          if (codes.size === 0) return ar;
+          const next = { ...ar };
+          for (const c of codes) {
+            delete next[`item-${c}`];
+          }
+          return next;
+        });
+      });
+      return {
+        ...prev,
         Receipt_Confirmation: {
-          ...payload.Receipt_Confirmation,
-          Items: payload.Receipt_Confirmation.Items.map((item) =>
+          ...prev.Receipt_Confirmation,
+          Items: prev.Receipt_Confirmation.Items.map((item) =>
             lineNoSet.has(item.Line_No) ? { ...item, Order_Price: value } : item
           ),
         },
-      });
-      setError(null);
-    },
-    [payload]
-  );
+      };
+    });
+    setError(null);
+  }, []);
 
   async function handlePost() {
     if (payload == null) return;
@@ -198,7 +234,7 @@ export default function ReceiptEditor({
 
   const visibleItems = useMemo(() => {
     const items = (payload?.Receipt_Confirmation.Items ?? []).filter((item) => !isZeroOutLine(item));
-    return [...items].sort((a, b) => compareLineNoAsc(a.Line_No, b.Line_No));
+    return [...items].sort((a, b) => compareReceiptLineNoAsc(a.Line_No, b.Line_No));
   }, [payload]);
 
   const displayRows = useMemo<ReceiptDisplayRow[]>(() => {
@@ -257,11 +293,12 @@ export default function ReceiptEditor({
         netWeight,
         uom,
         rate,
+        rateIsAveraged: Boolean(averagedRateRowKeys[`item-${first.Item_Code}`]),
         isWeightBased: uom.trim().toUpperCase() === "KG",
         sourceLineNos: lineNos,
       };
     });
-  }, [showLineDetails, visibleItems]);
+  }, [showLineDetails, visibleItems, averagedRateRowKeys]);
 
   const needsPrice = payload != null ? hasMissingOrderPrice(payload) : false;
   const hasInvalidPrice = payload != null ? hasInvalidOrderPrice(payload) : false;
@@ -423,6 +460,7 @@ export default function ReceiptEditor({
                   netWeight={row.netWeight}
                   uom={row.uom}
                   rate={row.rate}
+                  rateIsAveraged={row.rateIsAveraged ?? false}
                   isWeightBased={row.isWeightBased}
                   rateReadOnly={rateReadOnly}
                   onOrderPriceChange={(value) => updateOrderPrice(row.sourceLineNos, value)}
@@ -445,6 +483,9 @@ export default function ReceiptEditor({
               </tr>
             </tbody>
           </table>
+          {!showLineDetails && displayRows.some((r) => r.rateIsAveraged) ? (
+            <p className="receipt-rate-average-footnote">For all * — Average of line prices captured</p>
+          ) : null}
         </div>
 
         <div className="receipt-sheet-powered" aria-hidden="true">

@@ -111,6 +111,10 @@ body {
     flex: 1 1 88px;
 }
 
+.receipt-orders-filter-field.receipt-orders-filter-field-date {
+    flex: 1 1 140px;
+}
+
 .receipt-orders-filter-field label {
     font-size: 11px;
     font-weight: 600;
@@ -444,6 +448,40 @@ body {
 
 .receipt-input-price::placeholder {
     color: #6c757d;
+}
+
+.receipt-rate-input-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 3px;
+    max-width: 100%;
+}
+
+.receipt-rate-input-wrap-averaged .receipt-input-price {
+    background: $cch-blue-light-bg !important;
+    border-color: $cch-blue-light !important;
+}
+
+.receipt-input-price-averaged:focus {
+    border-color: $cch-blue !important;
+    box-shadow: 0 0 0 2px rgba($cch-blue-light, 0.45);
+}
+
+.receipt-rate-asterisk {
+    font-weight: 700;
+    color: $cch-blue;
+    flex-shrink: 0;
+}
+
+.receipt-rate-average-footnote {
+    margin: 8px 4px 0;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: $cch-blue-dark;
+    background: $cch-blue-light-bg;
+    border-left: 3px solid $cch-blue-light;
+    border-radius: 3px;
 }
 
 .receipt-rate-readonly {
