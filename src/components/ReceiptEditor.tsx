@@ -15,6 +15,10 @@ import ReceiptLineEditor from "./ReceiptLineEditor";
 const MAX_STATUS_LINES = 25;
 const isDev = import.meta.env.DEV;
 
+function compareLineNoAsc(a: string, b: string): number {
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+}
+
 interface ReceiptEditorProps {
   initialPayload: ReceiptConfirmationPayload | null;
   targetPayloadBase64?: string | null;
@@ -54,7 +58,7 @@ export default function ReceiptEditor({
   const [statusLog, setStatusLog] = useState<string[]>([]);
   const [showTargetPayloadView, setShowTargetPayloadView] = useState(false);
   const [showSourcePayloadView, setShowSourcePayloadView] = useState(false);
-  const [showHoldCodeDetails, setShowHoldCodeDetails] = useState(false);
+  const [showLineDetails, setShowLineDetails] = useState(false);
 
   const decodedTargetPayload = useMemo(
     () => decodePayloadBase64(targetPayloadBase64),
@@ -85,7 +89,7 @@ export default function ReceiptEditor({
   useEffect(() => {
     setShowTargetPayloadView(false);
     setShowSourcePayloadView(false);
-    setShowHoldCodeDetails(false);
+    setShowLineDetails(false);
   }, [initialPayload, targetPayloadBase64, sourcePayloadBase64]);
 
   const updateOrderPrice = useCallback(
@@ -192,13 +196,13 @@ export default function ReceiptEditor({
     }
   }
 
-  const visibleItems = useMemo(
-    () => (payload?.Receipt_Confirmation.Items ?? []).filter((item) => !isZeroOutLine(item)),
-    [payload]
-  );
+  const visibleItems = useMemo(() => {
+    const items = (payload?.Receipt_Confirmation.Items ?? []).filter((item) => !isZeroOutLine(item));
+    return [...items].sort((a, b) => compareLineNoAsc(a.Line_No, b.Line_No));
+  }, [payload]);
 
   const displayRows = useMemo<ReceiptDisplayRow[]>(() => {
-    if (showHoldCodeDetails) {
+    if (showLineDetails) {
       return visibleItems.map((item) => {
         const invL3 = item.Inventory_Level3 ?? item.Line_Stock_Details?.[0]?.To_Inventory_L3 ?? "";
         const holdCode =
@@ -245,7 +249,7 @@ export default function ReceiptEditor({
       const uom = displayLineUom(first);
       return {
         key: `item-${first.Item_Code}`,
-        lineLabel: lineNos.length > 1 ? `${lineNos[0]}-${lineNos[lineNos.length - 1]}` : lineNos[0],
+        lineLabel: lineNos.length > 1 ? lineNos.join(", ") : lineNos[0],
         itemCode: first.Item_Code,
         description: first.Item_Description ?? "",
         inventoryDisplay: invValues.join(" | "),
@@ -257,7 +261,7 @@ export default function ReceiptEditor({
         sourceLineNos: lineNos,
       };
     });
-  }, [showHoldCodeDetails, visibleItems]);
+  }, [showLineDetails, visibleItems]);
 
   const needsPrice = payload != null ? hasMissingOrderPrice(payload) : false;
   const hasInvalidPrice = payload != null ? hasInvalidOrderPrice(payload) : false;
@@ -384,10 +388,10 @@ export default function ReceiptEditor({
             <label className="receipt-hold-toggle">
               <input
                 type="checkbox"
-                checked={showHoldCodeDetails}
-                onChange={(e) => setShowHoldCodeDetails(e.target.checked)}
+                checked={showLineDetails}
+                onChange={(e) => setShowLineDetails(e.target.checked)}
               />
-              <span>Show Hold Code Details</span>
+              <span>Show Line Details</span>
             </label>
           </div>
           <table className="table receipt-table">
@@ -397,7 +401,7 @@ export default function ReceiptEditor({
                 <th className="receipt-th receipt-th-item">Item code</th>
                 <th className="receipt-th receipt-th-desc">Description</th>
                 <th className="receipt-th receipt-th-inv">Pack Size / Lot</th>
-                {showHoldCodeDetails && <th className="receipt-th receipt-th-hold">Hold code</th>}
+                {showLineDetails && <th className="receipt-th receipt-th-hold">Hold code</th>}
                 <th className="receipt-th receipt-th-num">Qty</th>
                 <th className="receipt-th receipt-th-num">Net weight (kg)</th>
                 <th className="receipt-th receipt-th-uom">UOM</th>
@@ -414,7 +418,7 @@ export default function ReceiptEditor({
                   itemCode={row.itemCode}
                   description={row.description}
                   inventoryDisplay={row.inventoryDisplay}
-                  holdCode={showHoldCodeDetails ? row.holdCode : undefined}
+                  holdCode={showLineDetails ? row.holdCode : undefined}
                   quantity={row.quantity}
                   netWeight={row.netWeight}
                   uom={row.uom}
@@ -427,7 +431,7 @@ export default function ReceiptEditor({
               <tr className="receipt-tr receipt-tr-total">
                 <td
                   className="receipt-td receipt-td-line text-align-right"
-                  colSpan={showHoldCodeDetails ? 5 : 4}
+                  colSpan={showLineDetails ? 5 : 4}
                 >
                   <strong>Total</strong>
                 </td>
