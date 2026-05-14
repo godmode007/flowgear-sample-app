@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "bootstrap": "^5.3.8",
+    "diff": "^9.0.0",
     "flowgear-webapp": "^1.4.3",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

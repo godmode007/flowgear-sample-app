@@ -35,6 +35,26 @@ function tableMetaText(table: Element, ...localNames: string[]): string | null {
   return null;
 }
 
+function looksLikeBase64PayloadContent(s: string): boolean {
+  const t = s.replace(/\s/g, "");
+  if (t.length < 24) return false;
+  if (/^data:[^;]+;base64,/i.test(s.trim())) return true;
+  if (t.length % 4 === 1) return false;
+  return /^[A-Za-z0-9+/]+=*$/.test(t);
+}
+
+/** Source / alternate payload: explicit tags, or Source only when base64-like (not e.g. "KMotion"). */
+function tableSourcePayloadBase64Xml(table: Element): string | null {
+  const explicit = ["SourceContent", "SourcePayload", "OriginalContent"] as const;
+  for (const name of explicit) {
+    const t = tableMetaText(table, name);
+    if (t) return t;
+  }
+  const source = tableMetaText(table, "Source");
+  if (source != null && looksLikeBase64PayloadContent(source)) return source;
+  return null;
+}
+
 /**
  * Parses XML string: <Result><Table>...</Table><Table>...</Table></Result>
  * Each Table has <Content> with base64-encoded JSON payload.
@@ -67,12 +87,15 @@ export function parseResultTableXml(xmlString: string): ReceiptOrderListEntry[] 
           "CurrentUser",
           "LockUser",
           "LockedBy",
+          "LockedByUser",
+          "LockHolder",
           "LockHolderUser"
         );
+        const sourceRaw = tableSourcePayloadBase64Xml(table);
         out.push({
           payload: parsed,
           targetPayloadBase64: null,
-          sourcePayloadBase64: null,
+          sourcePayloadBase64: sourceRaw,
           recordId: recordId ?? undefined,
           currentLockUser: currentLockUser ?? undefined,
         });
@@ -106,6 +129,7 @@ function tableRowMeta(row: Record<string, unknown>): {
   const pick = (...keys: string[]): string | undefined => {
     for (const k of keys) {
       const v = row[k];
+      if (typeof v === "number" && Number.isFinite(v)) return String(v);
       if (typeof v === "string" && v.trim().length > 0) return v.trim();
     }
     return undefined;
@@ -118,9 +142,36 @@ function tableRowMeta(row: Record<string, unknown>): {
       "LockUser",
       "lockUser",
       "LockedBy",
-      "lockedBy"
+      "lockedBy",
+      "LockedByUser",
+      "lockedByUser",
+      "LockHolder",
+      "lockHolder",
+      "LockHolderUser",
+      "lockHolderUser"
     ),
   };
+}
+
+function tableRowSourceBase64(row: Record<string, unknown>): string | null {
+  const explicitKeys = [
+    "SourceContent",
+    "sourceContent",
+    "SourcePayload",
+    "sourcePayload",
+    "OriginalContent",
+    "originalContent",
+  ];
+  for (const k of explicitKeys) {
+    const v = row[k];
+    if (typeof v === "string" && v.trim().length > 0) return v.trim();
+  }
+  const src = row.Source ?? row.source;
+  if (typeof src === "string") {
+    const t = src.trim();
+    if (t.length > 0 && looksLikeBase64PayloadContent(t)) return t;
+  }
+  return null;
 }
 
 /**
@@ -144,10 +195,11 @@ export function parseResultTableJson(jsonString: string): ReceiptOrderListEntry[
       const payload = safeParseJson(jsonStr);
       if (!isReceiptPayload(payload)) continue;
       const meta = tableRowMeta(row);
+      const sourceB64 = tableRowSourceBase64(row);
       out.push({
         payload,
         targetPayloadBase64: null,
-        sourcePayloadBase64: null,
+        sourcePayloadBase64: sourceB64,
         recordId: meta.recordId,
         currentLockUser: meta.currentLockUser,
       });

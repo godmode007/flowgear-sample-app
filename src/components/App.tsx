@@ -1,14 +1,19 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import type { ReceiptOrderListEntry, ReceiptConfirmationPayload } from "../models/receiptConfirmation";
-import { normalizePayloadOrderPriceToRate, getReceiptLockRecordId } from "../models/receiptConfirmation";
+import {
+  normalizePayloadOrderPriceToRate,
+  lockUsersMatch,
+  compareReceiptOrdersByDetailDate,
+} from "../models/receiptConfirmation";
 import {
   getOrdersList,
   AuthError,
   ConnectionError,
   isEmbeddedInConsole,
   setReceiptNoPriceLock,
-  getReceiptLockDashboardId,
   getReceiptLockUsernameForRequest,
+  resolveReceiptLockUsernameForRequest,
+  receiptNoPriceLockInvokePath,
 } from "../services/payloadService";
 import {
   tryAcquireReceiptLock,
@@ -20,7 +25,9 @@ import {
 import {
   filterReceiptOrders,
   ordersListEntryKey,
+  buildLockUserPickerOptions,
   type OrderListFilters,
+  type OrderListFilterContext,
 } from "../utils/orderListFilters";
 import OrderListPanel from "./OrderListPanel";
 import OrderFiltersBar from "./OrderFiltersBar";
@@ -36,7 +43,28 @@ function receiptLockKeyFromPayload(payload: ReceiptConfirmationPayload): string 
   return `${company}|${no}`;
 }
 
+const COLLAPSE_LEFT_KEY = "cch-receipt-orders-panel-collapsed";
+
+function readLeftPanelCollapsed(): boolean {
+  try {
+    return typeof localStorage !== "undefined" && localStorage.getItem(COLLAPSE_LEFT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+const LOCK_DEBUG_LOG_MAX = 40;
+
 function App() {
+  /** Dev-only lines for ReceiptNoPriceLock invoke debugging (shown in ReceiptEditor footer). */
+  const [lockDebugLog, setLockDebugLog] = useState<string[]>([]);
+
+  const appendLockDebug = useCallback((line: string) => {
+    if (!isDev) return;
+    const ts = new Date().toISOString().slice(11, 23);
+    setLockDebugLog((prev) => [...prev.slice(-(LOCK_DEBUG_LOG_MAX - 1)), `${ts}  ${line}`]);
+  }, []);
+
   const [orders, setOrders] = useState<ReceiptOrderListEntry[]>([]);
   const [listFilters, setListFilters] = useState<OrderListFilters>({
     company: "",
@@ -44,22 +72,66 @@ function App() {
     receiptNo: "",
     dateFrom: "",
     dateTo: "",
+    lockUserSelections: [],
   });
-  const filteredOrders = useMemo(() => filterReceiptOrders(orders, listFilters), [orders, listFilters]);
-  const hasActiveFilters =
-    listFilters.company.trim().length > 0 ||
-    listFilters.probill.trim().length > 0 ||
-    listFilters.receiptNo.trim().length > 0 ||
-    listFilters.dateFrom.trim().length > 0 ||
-    listFilters.dateTo.trim().length > 0;
+
+  const [listDateSortDesc, setListDateSortDesc] = useState(false);
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(readLeftPanelCollapsed);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLLAPSE_LEFT_KEY, leftPanelCollapsed ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [leftPanelCollapsed]);
 
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [listStatus, setListStatus] = useState<string>("");
   const [lockUserOverrideByRecordId, setLockUserOverrideByRecordId] = useState<Record<string, string>>({});
+  /** Row Ids (dashboard Id) we successfully POST-locked in this session — list may not yet show us as LockedBy. */
+  const [clientServerLockIds, setClientServerLockIds] = useState<Record<string, boolean>>({});
+  /** Dashboard Id for which ReceiptNoPriceLock POST succeeded (rate edit or pre-post claim). */
+  const [editSessionRecordId, setEditSessionRecordId] = useState<string | null>(null);
+  const [editSessionBusy, setEditSessionBusy] = useState(false);
+  const editSessionRecordIdRef = useRef<string | null>(null);
+  const lastSelectedListRecordIdRef = useRef<string | null>(null);
+  const lockGenerationRef = useRef(0);
+  const rateEditFlagsRef = useRef<Record<string, boolean>>({});
   const [authFailed, setAuthFailed] = useState(false);
   const [connectionFailed, setConnectionFailed] = useState(false);
   const embedded = isEmbeddedInConsole();
+
+  const [lockUserResolvedNonce, setLockUserResolvedNonce] = useState(0);
+  useEffect(() => {
+    void resolveReceiptLockUsernameForRequest().finally(() => setLockUserResolvedNonce((n) => n + 1));
+  }, []);
+
+  const lockUserPickerOptions = useMemo(
+    () => buildLockUserPickerOptions(orders, lockUserOverrideByRecordId),
+    [orders, lockUserOverrideByRecordId]
+  );
+
+  const orderFilterContext: OrderListFilterContext = useMemo(
+    () => ({
+      lockUserOverrideByRecordId,
+      currentUserLockLabel: getReceiptLockUsernameForRequest(),
+    }),
+    [lockUserOverrideByRecordId, lockUserResolvedNonce]
+  );
+  const filteredOrders = useMemo(() => {
+    const filtered = filterReceiptOrders(orders, listFilters, orderFilterContext);
+    const dir = listDateSortDesc ? "desc" : "asc";
+    return [...filtered].sort((a, b) => compareReceiptOrdersByDetailDate(a, b, dir));
+  }, [orders, listFilters, orderFilterContext, listDateSortDesc]);
+  const hasActiveFilters =
+    listFilters.company.trim().length > 0 ||
+    listFilters.probill.trim().length > 0 ||
+    listFilters.receiptNo.trim().length > 0 ||
+    listFilters.dateFrom.trim().length > 0 ||
+    listFilters.dateTo.trim().length > 0 ||
+    listFilters.lockUserSelections.length > 0;
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -73,6 +145,12 @@ function App() {
       const normalized = list.map((entry) => normalizePayloadOrderPriceToRate(entry));
       setOrders(normalized);
       setLockUserOverrideByRecordId({});
+      setClientServerLockIds({});
+      rateEditFlagsRef.current = {};
+      if (isDev) setLockDebugLog([]);
+      editSessionRecordIdRef.current = null;
+      setEditSessionRecordId(null);
+      lastSelectedListRecordIdRef.current = null;
     } catch (e) {
       if (e instanceof AuthError) setAuthFailed(true);
       else if (e instanceof ConnectionError) setConnectionFailed(true);
@@ -96,55 +174,65 @@ function App() {
     });
   }, [filteredOrders]);
 
+  useEffect(() => {
+    editSessionRecordIdRef.current = editSessionRecordId;
+  }, [editSessionRecordId]);
+
   const selectedOrder =
     selectedIndex != null && filteredOrders[selectedIndex] != null ? filteredOrders[selectedIndex]! : null;
 
-  const lockPrevRecordIdRef = useRef<string | null>(null);
+  const dashboardRecordId =
+    selectedOrder?.recordId != null && String(selectedOrder.recordId).trim().length > 0
+      ? String(selectedOrder.recordId).trim()
+      : null;
 
+  /** Unlock previous row when selection changes while an edit session was active. */
   useEffect(() => {
-    const dashboardId = getReceiptLockDashboardId();
-    if (!dashboardId) return;
+    const newId = dashboardRecordId;
+    const prevId = lastSelectedListRecordIdRef.current;
+    if (prevId === newId) {
+      return;
+    }
+    lastSelectedListRecordIdRef.current = newId;
 
-    const newId = selectedOrder != null ? getReceiptLockRecordId(selectedOrder) : null;
-    const prevId = lockPrevRecordIdRef.current;
+    const editingId = editSessionRecordIdRef.current;
+    const seq = ++lockGenerationRef.current;
 
-    let cancelled = false;
-    (async () => {
-      try {
-        if (prevId != null && prevId !== newId) {
-          await setReceiptNoPriceLock({ dashboardId, recordId: prevId, username: null });
-          if (cancelled) return;
-          setLockUserOverrideByRecordId((m) => {
+    if (editingId != null && prevId != null && editingId === prevId && newId !== prevId) {
+      const hadRateEdits = rateEditFlagsRef.current[editingId] === true;
+      void (async () => {
+        if (hadRateEdits) {
+          delete rateEditFlagsRef.current[editingId];
+          return;
+        }
+        try {
+          const unlockPath = receiptNoPriceLockInvokePath(editingId, null);
+          appendLockDebug(`(row change) Flowgear.Sdk.invoke POST ${unlockPath}`);
+          await setReceiptNoPriceLock({ dashboardId: editingId, username: null });
+          if (lockGenerationRef.current !== seq) return;
+          appendLockDebug(`(row change) ReceiptNoPriceLock returned (released ${editingId})`);
+          editSessionRecordIdRef.current = null;
+          setEditSessionRecordId(null);
+          setClientServerLockIds((m) => {
             const next = { ...m };
-            delete next[prevId];
+            delete next[editingId];
             return next;
           });
-        }
-        if (newId != null) {
-          const u = getReceiptLockUsernameForRequest().trim();
-          await setReceiptNoPriceLock({
-            dashboardId,
-            recordId: newId,
-            username: u.length > 0 ? u : null,
+          setLockUserOverrideByRecordId((m) => {
+            const next = { ...m };
+            delete next[editingId];
+            return next;
           });
-          if (cancelled) return;
-          if (u.length > 0) {
-            setLockUserOverrideByRecordId((m) => ({ ...m, [newId]: u }));
-          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          appendLockDebug(`(row change) ReceiptNoPriceLock ERROR: ${msg}`);
+          if (isDev) console.warn("[ReceiptNoPriceLock] request failed", e);
+        } finally {
+          delete rateEditFlagsRef.current[editingId];
         }
-      } catch {
-        /* server lock is best-effort */
-      } finally {
-        if (!cancelled) {
-          lockPrevRecordIdRef.current = newId;
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedOrder]);
+      })();
+    }
+  }, [selectedOrder, dashboardRecordId, appendLockDebug]);
 
   const receiptLockKey =
     selectedOrder?.payload != null ? receiptLockKeyFromPayload(selectedOrder.payload) : undefined;
@@ -197,7 +285,108 @@ function App() {
     setOrders((prev) => prev.filter((o) => ordersListEntryKey(o) !== k));
   }, [selectedOrder]);
 
-  const foreignSessionLockActive = Boolean(receiptLockKey) && !receiptLockHeld;
+  const serverLockedByOther = useMemo(() => {
+    const recordId =
+      selectedOrder?.recordId != null && String(selectedOrder.recordId).trim().length > 0
+        ? String(selectedOrder.recordId).trim()
+        : "";
+    const locker = (selectedOrder?.currentLockUser ?? "").trim();
+    const me = getReceiptLockUsernameForRequest().trim();
+    const weHold =
+      recordId.length > 0 &&
+      (editSessionRecordId === recordId || clientServerLockIds[recordId] === true);
+    if (weHold) return false;
+    if (locker.length === 0) return false;
+    if (me.length === 0) return true;
+    return !lockUsersMatch(locker, me);
+  }, [selectedOrder, clientServerLockIds, editSessionRecordId, lockUserResolvedNonce]);
+
+  const beginEditSession = useCallback(async () => {
+    if (dashboardRecordId == null || dashboardRecordId.length === 0 || serverLockedByOther) return;
+    setEditSessionBusy(true);
+    try {
+      const u = (await resolveReceiptLockUsernameForRequest()).trim();
+      const lockPath = receiptNoPriceLockInvokePath(dashboardRecordId, u.length > 0 ? u : null);
+      appendLockDebug(`Flowgear.Sdk.invoke POST ${lockPath}`);
+      await setReceiptNoPriceLock({
+        dashboardId: dashboardRecordId,
+        username: u.length > 0 ? u : null,
+      });
+      appendLockDebug(`ReceiptNoPriceLock returned (lock ${dashboardRecordId})`);
+      editSessionRecordIdRef.current = dashboardRecordId;
+      setEditSessionRecordId(dashboardRecordId);
+      setClientServerLockIds((m) => ({ ...m, [dashboardRecordId]: true }));
+      if (u.length > 0) {
+        setLockUserOverrideByRecordId((m) => ({ ...m, [dashboardRecordId]: u }));
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      appendLockDebug(`ReceiptNoPriceLock ERROR: ${msg}`);
+      if (isDev) console.warn("[ReceiptNoPriceLock] request failed", e);
+    } finally {
+      setEditSessionBusy(false);
+    }
+  }, [dashboardRecordId, appendLockDebug, serverLockedByOther]);
+
+  const endEditSession = useCallback(async () => {
+    const id = editSessionRecordIdRef.current;
+    if (id == null) return;
+    setEditSessionBusy(true);
+    try {
+      const unlockPath = receiptNoPriceLockInvokePath(id, null);
+      appendLockDebug(`Flowgear.Sdk.invoke POST ${unlockPath} (Done editing)`);
+      await setReceiptNoPriceLock({ dashboardId: id, username: null });
+      appendLockDebug(`ReceiptNoPriceLock returned (released ${id})`);
+      editSessionRecordIdRef.current = null;
+      setEditSessionRecordId(null);
+      setClientServerLockIds((m) => {
+        const next = { ...m };
+        delete next[id];
+        return next;
+      });
+      setLockUserOverrideByRecordId((m) => {
+        const next = { ...m };
+        delete next[id];
+        return next;
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      appendLockDebug(`ReceiptNoPriceLock ERROR: ${msg}`);
+      if (isDev) console.warn("[ReceiptNoPriceLock] request failed", e);
+    } finally {
+      setEditSessionBusy(false);
+    }
+  }, [appendLockDebug]);
+
+  const onRateFieldFocus = useCallback(() => {
+    if (dashboardRecordId == null || dashboardRecordId.length === 0) return;
+    if (editSessionRecordIdRef.current === dashboardRecordId) return;
+    void beginEditSession();
+  }, [dashboardRecordId, beginEditSession]);
+
+  const onRateValueCommitted = useCallback(() => {
+    if (dashboardRecordId == null || dashboardRecordId.length === 0) return;
+    rateEditFlagsRef.current[dashboardRecordId] = true;
+  }, [dashboardRecordId]);
+
+  /** Claim server lock before post when list row has DashboardId (covers pre-filled rates with no keystrokes). */
+  const ensureLockBeforePost = useCallback(async (): Promise<boolean> => {
+    if (dashboardRecordId == null || dashboardRecordId.length === 0) return true;
+    if (serverLockedByOther) return false;
+    if (editSessionRecordIdRef.current === dashboardRecordId) return true;
+    await beginEditSession();
+    return editSessionRecordIdRef.current === dashboardRecordId;
+  }, [dashboardRecordId, serverLockedByOther, beginEditSession]);
+
+  const lockerDisplay = (selectedOrder?.currentLockUser ?? "").trim();
+  const sessionLockBannerOverride: string | null = serverLockedByOther
+    ? lockerDisplay.length > 0
+      ? `This receipt is locked by ${lockerDisplay}. Only that user can edit rates or post. Refresh the list when they are done.`
+      : `This receipt is locked by another user. Sign in to the Flowgear Console with the same account shown in the list, or refresh after they release it.`
+    : null;
+
+  const tabSessionLockActive = Boolean(receiptLockKey) && !receiptLockHeld;
+  const foreignSessionLockActive = serverLockedByOther || tabSessionLockActive;
 
   return (
     <>
@@ -226,31 +415,62 @@ function App() {
         </div>
       )}
       <div className="receipt-split-container">
-        <aside className="receipt-split-left">
-          <OrderListPanel
-            orders={filteredOrders}
-            totalLoadedCount={orders.length}
-            selectedIndex={selectedIndex}
-            onSelectOrder={setSelectedIndex}
-            onClearFilters={() =>
-              setListFilters({ company: "", probill: "", receiptNo: "", dateFrom: "", dateTo: "" })
-            }
-            loading={loading}
-            listStatus={listStatus}
-            lockUserOverrideByRecordId={lockUserOverrideByRecordId}
-          />
-        </aside>
+        <div
+          className={`receipt-split-left-wrap${leftPanelCollapsed ? " receipt-split-left-wrap--collapsed" : ""}`}
+        >
+          <aside className="receipt-split-left">
+            <OrderListPanel
+              orders={filteredOrders}
+              totalLoadedCount={orders.length}
+              selectedIndex={selectedIndex}
+              onSelectOrder={setSelectedIndex}
+              onClearFilters={() =>
+                setListFilters({
+                  company: "",
+                  probill: "",
+                  receiptNo: "",
+                  dateFrom: "",
+                  dateTo: "",
+                  lockUserSelections: [],
+                })
+              }
+              loading={loading}
+              listStatus={listStatus}
+              lockUserOverrideByRecordId={lockUserOverrideByRecordId}
+              listDateSortDesc={listDateSortDesc}
+              onListDateSortToggle={() => setListDateSortDesc((d) => !d)}
+            />
+          </aside>
+          <button
+            type="button"
+            className="receipt-split-collapse-toggle"
+            aria-expanded={!leftPanelCollapsed}
+            aria-controls="receipt-orders-panel"
+            title={leftPanelCollapsed ? "Show orders list" : "Hide orders list"}
+            onClick={() => setLeftPanelCollapsed((c) => !c)}
+          >
+            <span aria-hidden="true">{leftPanelCollapsed ? "›" : "‹"}</span>
+          </button>
+        </div>
         <main className="receipt-split-right">
           <OrderFiltersBar
             filters={listFilters}
             onFiltersChange={setListFilters}
             onRefresh={loadOrders}
             onClearFilters={() =>
-              setListFilters({ company: "", probill: "", receiptNo: "", dateFrom: "", dateTo: "" })
+              setListFilters({
+                company: "",
+                probill: "",
+                receiptNo: "",
+                dateFrom: "",
+                dateTo: "",
+                lockUserSelections: [],
+              })
             }
             loading={loading}
             hasActiveFilters={hasActiveFilters}
             loadedCount={orders.length}
+            lockUserPickerOptions={lockUserPickerOptions}
           />
           <div className="receipt-split-right-body">
             <ReceiptEditor
@@ -261,6 +481,15 @@ function App() {
               onRefresh={loadOrders}
               onPostSuccess={handlePostSuccess}
               foreignSessionLockActive={foreignSessionLockActive}
+              sessionLockBannerOverride={sessionLockBannerOverride}
+              lockApiDebugLog={lockDebugLog}
+              dashboardRecordId={dashboardRecordId}
+              onRateFieldFocus={onRateFieldFocus}
+              onRateValueCommitted={onRateValueCommitted}
+              ensureLockBeforePost={ensureLockBeforePost}
+              onEndEditSession={endEditSession}
+              editSessionBusy={editSessionBusy}
+              currentUserLockLabel={orderFilterContext.currentUserLockLabel}
             />
           </div>
         </main>

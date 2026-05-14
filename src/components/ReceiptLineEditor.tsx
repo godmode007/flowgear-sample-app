@@ -15,6 +15,8 @@ interface ReceiptLineEditorProps {
   rateIsAveraged?: boolean;
   isWeightBased: boolean;
   onOrderPriceChange: (value: number | null) => void;
+  /** First pointer focus into this rate field (claims server lock); must not change parent state. */
+  onRateFocus?: () => void;
 }
 
 function round2(n: number): number {
@@ -49,6 +51,7 @@ export default function ReceiptLineEditor({
   rateIsAveraged = false,
   isWeightBased,
   onOrderPriceChange,
+  onRateFocus,
 }: ReceiptLineEditorProps) {
   const [draft, setDraft] = useState(() => formatRateFromNumber(rate));
   const focusedRef = useRef(false);
@@ -70,6 +73,10 @@ export default function ReceiptLineEditor({
   function commitDraft() {
     const v = draft.trim().replace(",", ".");
     if (v === "" || v === "." || v === "-") {
+      if (rate == null) {
+        setDraft("");
+        return;
+      }
       onOrderPriceChange(null);
       setDraft("");
       return;
@@ -80,6 +87,10 @@ export default function ReceiptLineEditor({
       return;
     }
     const rounded = round2(r);
+    if (rate != null && round2(rate) === rounded) {
+      setDraft(String(rounded));
+      return;
+    }
     onOrderPriceChange(rounded);
     setDraft(String(rounded));
   }
@@ -127,8 +138,10 @@ export default function ReceiptLineEditor({
               placeholder="0.00"
               value={draft}
               onChange={handleDraftChange}
+              onMouseDown={(e) => e.stopPropagation()}
               onFocus={() => {
                 focusedRef.current = true;
+                onRateFocus?.();
               }}
               onBlur={() => {
                 focusedRef.current = false;

@@ -1,8 +1,7 @@
 import type { ReceiptOrderListEntry } from "../models/receiptConfirmation";
-import { getReceiptLockRecordId } from "../models/receiptConfirmation";
+import { getReceiptDetailDateForFilter, getReceiptLockRecordId } from "../models/receiptConfirmation";
 
 interface OrderListPanelProps {
-  /** Already filtered list */
   orders: ReceiptOrderListEntry[];
   totalLoadedCount: number;
   selectedIndex: number | null;
@@ -10,8 +9,23 @@ interface OrderListPanelProps {
   onClearFilters: () => void;
   loading?: boolean;
   listStatus?: string;
-  /** Optimistic lock holder from client lock API (merged with workflow `currentLockUser`). */
   lockUserOverrideByRecordId: Record<string, string>;
+   /** false = receipt date ascending (oldest first); true = descending (newest first). */
+  listDateSortDesc?: boolean;
+  onListDateSortToggle?: () => void;
+}
+
+function orderListDateCell(entry: ReceiptOrderListEntry): { text: string; title?: string } {
+  const raw = getReceiptDetailDateForFilter(entry.payload);
+  if (raw == null || raw.length === 0) return { text: "—" };
+  const t = Date.parse(raw);
+  if (!Number.isNaN(t)) {
+    return {
+      text: new Intl.DateTimeFormat(undefined, { year: "2-digit", month: "short", day: "numeric" }).format(t),
+      title: raw,
+    };
+  }
+  return { text: raw.length > 12 ? `${raw.slice(0, 12)}…` : raw, title: raw };
 }
 
 function orderLabel(entry: ReceiptOrderListEntry): string {
@@ -34,14 +48,18 @@ export default function OrderListPanel({
   loading = false,
   listStatus = "",
   lockUserOverrideByRecordId,
+  listDateSortDesc = false,
+  onListDateSortToggle,
 }: OrderListPanelProps) {
   return (
-    <div className="receipt-orders-panel">
+    <div className="receipt-orders-panel" id="receipt-orders-panel">
       <div className="receipt-orders-panel-header">
         <span className="receipt-orders-panel-title">Orders</span>
         <span className="receipt-orders-panel-badge" title="Rows returned from workflow">
-          {orders.length}
-          {orders.length !== totalLoadedCount ? ` / ${totalLoadedCount}` : ""}
+          <span className="receipt-orders-panel-badge-count">{orders.length}</span>
+          {orders.length !== totalLoadedCount ? (
+            <span className="receipt-orders-panel-badge-total"> / {totalLoadedCount}</span>
+          ) : null}
         </span>
       </div>
       {listStatus ? (
@@ -52,8 +70,24 @@ export default function OrderListPanel({
         </div>
       ) : null}
       {totalLoadedCount > 0 && orders.length > 0 ? (
-        <div className="receipt-orders-list-head" aria-hidden>
-          <span>Order</span>
+        <div className="receipt-orders-list-head" role="row">
+          <button
+            type="button"
+            className="receipt-orders-list-head-date"
+            onClick={() => onListDateSortToggle?.()}
+            aria-sort={listDateSortDesc ? "descending" : "ascending"}
+            title={
+              listDateSortDesc
+                ? "Date: newest first. Click for oldest first."
+                : "Date: oldest first. Click for newest first."
+            }
+          >
+            Date
+            <span className="receipt-orders-sort-chevron" aria-hidden>
+              {listDateSortDesc ? "▼" : "▲"}
+            </span>
+          </button>
+          <span className="receipt-orders-list-head-mid">Order</span>
           <span>Current user</span>
         </div>
       ) : null}
@@ -74,6 +108,7 @@ export default function OrderListPanel({
           const fromList = (order.currentLockUser ?? "").trim();
           const fromOverride = (lockUserOverrideByRecordId[rid] ?? "").trim();
           const displayUser = fromList || fromOverride || "—";
+          const dateCell = orderListDateCell(order);
           return (
             <li
               key={rid}
@@ -83,6 +118,9 @@ export default function OrderListPanel({
               onClick={() => onSelectOrder(index)}
             >
               <div className="receipt-orders-item-cols">
+                <div className="receipt-orders-item-date" title={dateCell.title}>
+                  {dateCell.text}
+                </div>
                 <div className="receipt-orders-item-main">
                   <div className="receipt-orders-item-label">{orderLabel(order)}</div>
                   <div className="receipt-orders-item-sub">{orderSubtext(order)}</div>

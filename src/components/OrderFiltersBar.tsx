@@ -1,4 +1,6 @@
 import type { OrderListFilters } from "../utils/orderListFilters";
+import type { LockUserMultiSelectOption } from "./LockUserMultiSelect";
+import LockUserMultiSelect from "./LockUserMultiSelect";
 
 interface OrderFiltersBarProps {
   filters: OrderListFilters;
@@ -8,6 +10,7 @@ interface OrderFiltersBarProps {
   loading?: boolean;
   hasActiveFilters: boolean;
   loadedCount: number;
+  lockUserPickerOptions: LockUserMultiSelectOption[];
 }
 
 export default function OrderFiltersBar({
@@ -18,6 +21,7 @@ export default function OrderFiltersBar({
   loading = false,
   hasActiveFilters,
   loadedCount,
+  lockUserPickerOptions,
 }: OrderFiltersBarProps) {
   const patch = (partial: Partial<OrderListFilters>) => onFiltersChange({ ...filters, ...partial });
 
@@ -28,6 +32,12 @@ export default function OrderFiltersBar({
         <span className="receipt-main-filters-count">{loadedCount} loaded</span>
       </div>
       <div className="receipt-main-filters-inner">
+        <LockUserMultiSelect
+          options={lockUserPickerOptions}
+          selected={filters.lockUserSelections}
+          onChange={(lockUserSelections) => onFiltersChange({ ...filters, lockUserSelections })}
+          disabled={loading}
+        />
         <div className="receipt-main-filter-field">
           <label htmlFor="main-filter-company">Company</label>
           <input

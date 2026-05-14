@@ -30,6 +30,35 @@ body {
     padding: 0 30px;
 }
 
+.receipt-post-success {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 20px;
+    max-width: 720px;
+    margin: 0 auto 20px;
+    padding: 14px 18px;
+    border-radius: 6px;
+    background: #d1e7dd;
+    border: 1px solid rgba(15, 81, 50, 0.25);
+    color: #0a3622;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.receipt-post-success-message {
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.receipt-post-success .receipt-btn {
+    flex-shrink: 0;
+}
+
 .receipt-app-nav {
     background: $cch-blue-light-bg !important;
     border-bottom: 1px solid rgba(0, 41, 139, 0.15);
@@ -52,14 +81,57 @@ body {
     overflow: hidden;
 }
 
-.receipt-split-left {
-    width: 300px;
-    min-width: 300px;
+.receipt-split-left-wrap {
+    display: flex;
+    flex-direction: row;
+    flex-shrink: 0;
+    align-items: stretch;
+}
+
+.receipt-split-left-wrap--collapsed .receipt-split-left {
+    width: 0;
+    min-width: 0;
+    opacity: 0;
+    overflow: hidden;
+    border-right-width: 0;
+    pointer-events: none;
+}
+
+.receipt-split-collapse-toggle {
+    flex-shrink: 0;
+    width: 26px;
+    min-width: 26px;
+    border: none;
     border-right: 2px solid $cch-blue-dark;
+    background: $cch-blue-dark;
+    color: #fff;
+    cursor: pointer;
+    font-size: 22px;
+    line-height: 1;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s ease;
+}
+
+.receipt-split-collapse-toggle:hover {
+    background: $cch-blue;
+}
+
+.receipt-split-collapse-toggle:focus-visible {
+    outline: 2px solid $cch-blue-light;
+    outline-offset: -2px;
+}
+
+.receipt-split-left {
+    width: 380px;
+    min-width: 380px;
     background: #fff;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    transition: width 0.22s ease, min-width 0.22s ease, opacity 0.18s ease;
 }
 
 .receipt-split-right {
@@ -99,12 +171,27 @@ body {
 }
 
 .receipt-orders-panel-badge {
-    font-size: 12px;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 2px;
     font-variant-numeric: tabular-nums;
     color: rgba(255, 255, 255, 0.9);
     background: rgba(0, 0, 0, 0.2);
-    padding: 3px 8px;
+    padding: 4px 10px;
     border-radius: 4px;
+}
+
+.receipt-orders-panel-badge-count {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.receipt-orders-panel-badge-total {
+    font-size: 16px;
+    font-weight: 600;
+    opacity: 0.92;
+    line-height: 1.15;
 }
 
 .receipt-main-filters {
@@ -133,8 +220,9 @@ body {
 }
 
 .receipt-main-filters-count {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.82);
+    font-size: 16px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
 }
 
 .receipt-main-filters-inner {
@@ -142,6 +230,154 @@ body {
     flex-wrap: wrap;
     gap: 10px 12px;
     align-items: flex-end;
+}
+
+.receipt-lock-user-ms {
+    position: relative;
+    flex: 1 1 180px;
+    min-width: 160px;
+    max-width: 280px;
+}
+
+.receipt-lock-user-ms-field {
+    width: 100%;
+}
+
+.receipt-lock-user-ms-static-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.88);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.receipt-lock-user-ms-trigger {
+    width: 100%;
+    min-height: 34px;
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 4px;
+    background: #fff;
+    color: #212529;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    text-align: left;
+    gap: 8px;
+    box-sizing: border-box;
+}
+
+.receipt-lock-user-ms-trigger:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.receipt-lock-user-ms-trigger-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.receipt-lock-user-ms-chevron {
+    flex-shrink: 0;
+    font-size: 10px;
+    opacity: 0.65;
+}
+
+.receipt-lock-user-ms-panel {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    background: #fff;
+    color: #212529;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    max-height: 320px;
+}
+
+.receipt-lock-user-ms-search {
+    margin: 8px;
+    padding: 6px 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 13px;
+    width: calc(100% - 16px);
+    box-sizing: border-box;
+}
+
+.receipt-lock-user-ms-list {
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    padding: 4px 0;
+}
+
+.receipt-lock-user-ms-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    margin: 0;
+    font-weight: 500;
+}
+
+.receipt-lock-user-ms-option:hover {
+    background: #f1f3f5;
+}
+
+.receipt-lock-user-ms-option-mine {
+    font-weight: 700;
+    border-bottom: 1px solid #e9ecef;
+    margin-bottom: 4px;
+    padding-bottom: 10px;
+}
+
+.receipt-lock-user-ms-option input {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: $cch-blue;
+}
+
+.receipt-lock-user-ms-empty {
+    padding: 12px;
+    color: #6c757d;
+    font-size: 13px;
+}
+
+.receipt-lock-user-ms-footer {
+    border-top: 1px solid #e9ecef;
+    padding: 8px;
+}
+
+.receipt-lock-user-ms-clear {
+    background: transparent;
+    border: none;
+    color: $cch-blue;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 4px 8px;
+}
+
+.receipt-lock-user-ms-clear:hover {
+    color: $cch-blue-dark;
 }
 
 .receipt-main-filter-field {
@@ -258,8 +494,9 @@ body {
 }
 
 .receipt-orders-list-head {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr) 76px;
+    align-items: center;
     gap: 8px;
     padding: 6px 12px 4px;
     font-size: 10px;
@@ -272,20 +509,64 @@ body {
     flex-shrink: 0;
 }
 
+.receipt-orders-list-head-date {
+    margin: 0;
+    padding: 2px 4px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    font: inherit;
+    font-weight: 700;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    color: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    text-align: left;
+    width: 100%;
+    min-width: 0;
+}
+
+.receipt-orders-list-head-date:hover {
+    background: rgba(0, 41, 139, 0.08);
+}
+
+.receipt-orders-list-head-date:focus-visible {
+    outline: 2px solid $cch-blue;
+    outline-offset: 1px;
+}
+
+.receipt-orders-sort-chevron {
+    font-size: 9px;
+    opacity: 0.85;
+}
+
+.receipt-orders-list-head-mid {
+    padding-left: 2px;
+}
+
 .receipt-orders-item-cols {
-    display: flex;
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr) 76px;
     align-items: flex-start;
     gap: 8px;
 }
 
+.receipt-orders-item-date {
+    font-size: 11px;
+    line-height: 1.3;
+    color: #495057;
+    font-variant-numeric: tabular-nums;
+    padding-top: 1px;
+}
+
 .receipt-orders-item-main {
-    flex: 1;
     min-width: 0;
 }
 
 .receipt-orders-item-user {
-    flex: 0 0 80px;
-    max-width: 80px;
     font-size: 11px;
     line-height: 1.25;
     color: $cch-blue-dark;
@@ -345,6 +626,33 @@ body {
     min-width: 0;
 }
 
+.receipt-sheet-header-user {
+    margin-left: auto;
+    flex-shrink: 0;
+    align-self: flex-start;
+    text-align: right;
+    max-width: min(280px, 42vw);
+    padding-top: 2px;
+}
+
+.receipt-sheet-user-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.88;
+    margin-bottom: 4px;
+}
+
+.receipt-sheet-user-value {
+    display: block;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
 .receipt-sheet-title {
     margin: 0 0 10px 0;
     font-size: 1.25rem;
@@ -393,9 +701,21 @@ body {
 }
 
 .receipt-table-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
     padding: 10px 12px;
     border-bottom: 1px solid #e9ecef;
     background: #f8f9fa;
+}
+
+.receipt-table-controls-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
 }
 
 .receipt-hold-toggle {
@@ -409,8 +729,13 @@ body {
     cursor: pointer;
 }
 
-.receipt-hold-toggle input {
-    margin: 0;
+.receipt-hold-toggle--disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.receipt-hold-toggle--disabled input {
+    cursor: not-allowed;
 }
 
 .receipt-sheet-powered {
@@ -639,8 +964,15 @@ body {
     color: #fff;
 }
 
-.receipt-btn-primary-ready {
+.receipt-btn-primary-ready:not(:disabled) {
+    background: #198754;
+    border-color: #146c43;
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35) inset;
+}
+
+.receipt-btn-primary.receipt-btn-primary-ready:not(:disabled):hover {
+    background: #157347;
+    border-color: #0f5132;
 }
 
 .receipt-btn-primary:hover:not(:disabled) {
@@ -700,10 +1032,18 @@ body {
 
 .receipt-debug-payload-heading {
     display: flex;
-    align-items: center;
+    flex-direction: row;
     flex-wrap: wrap;
+    align-items: center;
     gap: 8px;
     margin-bottom: 8px;
+}
+
+.receipt-debug-payload-btn-row {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
 }
 
 .receipt-debug-payload-json {
@@ -721,6 +1061,126 @@ body {
     word-break: break-word;
 }
 
+.receipt-debug-payload-compare-hint {
+    font-size: 11px;
+    font-weight: 600;
+    color: $cch-blue-dark;
+    margin-left: 4px;
+}
+
+.receipt-debug-payload-pane-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
+.receipt-debug-payload-pane-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: $cch-blue-dark;
+}
+
+.receipt-debug-payload-pane--after {
+    margin-top: 12px;
+}
+
+.receipt-debug-payload-copy-btn,
+.receipt-debug-diff-copy-btn {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    font-size: 11px;
+    line-height: 1.25;
+}
+
+.receipt-debug-payload-compare {
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #f1f3f5;
+}
+
+.receipt-debug-diff-head {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 10px;
+    padding: 8px 12px;
+    background: #e9ecef;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.receipt-debug-diff-head-cell {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+}
+
+.receipt-debug-diff-head-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: $cch-blue-dark;
+}
+
+.receipt-debug-diff-panes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 10px;
+    max-height: 320px;
+    min-height: 0;
+}
+
+.receipt-debug-diff-scroll {
+    max-height: 320px;
+    min-height: 0;
+    overflow: auto;
+    font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, monospace;
+    font-size: 11px;
+    line-height: 1.45;
+    background: #f1f3f5;
+    overscroll-behavior: contain;
+}
+
+.receipt-debug-diff-scroll--left {
+    border-right: 1px solid #dee2e6;
+}
+
+.receipt-debug-diff-line {
+    margin: 0;
+    padding: 2px 10px;
+    white-space: pre;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.receipt-debug-diff-line:last-child {
+    border-bottom: none;
+}
+
+.receipt-debug-diff-cell--same {
+    background: transparent;
+}
+
+.receipt-debug-diff-cell--removed {
+    background: rgba(220, 53, 69, 0.14);
+}
+
+.receipt-debug-diff-cell--added {
+    background: rgba(25, 135, 84, 0.15);
+}
+
+.receipt-debug-diff-cell--blank {
+    background: rgba(0, 0, 0, 0.03);
+    color: transparent;
+    user-select: none;
+}
+
 [data-theme="dark-theme-ci"] .receipt-status-log,
 .theme-dark .receipt-status-log {
     background: #22272e;
@@ -733,6 +1193,61 @@ body {
     background: #22272e;
     border-color: #444c56;
     color: #adbac7;
+}
+
+[data-theme="dark-theme-ci"] .receipt-debug-payload-compare,
+.theme-dark .receipt-debug-payload-compare {
+    background: #22272e;
+    border-color: #444c56;
+}
+
+[data-theme="dark-theme-ci"] .receipt-debug-diff-head,
+.theme-dark .receipt-debug-diff-head {
+    background: #2d3338;
+    border-color: #444c56;
+}
+
+[data-theme="dark-theme-ci"] .receipt-debug-diff-head-title,
+.theme-dark .receipt-debug-diff-head-title,
+[data-theme="dark-theme-ci"] .receipt-debug-payload-pane-label,
+.theme-dark .receipt-debug-payload-pane-label {
+    color: #adbac7;
+}
+
+[data-theme="dark-theme-ci"] .receipt-debug-diff-scroll,
+.theme-dark .receipt-debug-diff-scroll {
+    background: #22272e;
+    color: #adbac7;
+}
+
+[data-theme="dark-theme-ci"] .receipt-debug-diff-scroll--left,
+.theme-dark .receipt-debug-diff-scroll--left {
+    border-right-color: #444c56;
+}
+
+[data-theme="dark-theme-ci"] .receipt-debug-diff-line,
+.theme-dark .receipt-debug-diff-line {
+    border-color: #444c56;
+}
+
+[data-theme="dark-theme-ci"] .receipt-debug-diff-cell--removed,
+.theme-dark .receipt-debug-diff-cell--removed {
+    background: rgba(248, 81, 73, 0.2);
+}
+
+[data-theme="dark-theme-ci"] .receipt-debug-diff-cell--added,
+.theme-dark .receipt-debug-diff-cell--added {
+    background: rgba(63, 185, 80, 0.2);
+}
+
+[data-theme="dark-theme-ci"] .receipt-debug-diff-cell--blank,
+.theme-dark .receipt-debug-diff-cell--blank {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark-theme-ci"] .receipt-debug-payload-compare-hint,
+.theme-dark .receipt-debug-payload-compare-hint {
+    color: #9daccc;
 }
 
 /* Dark theme overrides for receipt sheet */

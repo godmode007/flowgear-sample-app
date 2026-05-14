@@ -122,12 +122,34 @@ export function getItemHoldCodeForGrouping(item: ReceiptConfirmationItem): strin
   return h.toUpperCase();
 }
 
+/** Pack / destination L3 so same item + hold with different pack sizes stay separate rows. */
+export function getItemPackKeyForGrouping(item: ReceiptConfirmationItem): string {
+  const toL3 = (item.Line_Stock_Details?.[0]?.To_Inventory_L3 ?? "").trim();
+  const invL3 = (item.Inventory_Level3 ?? "").trim();
+  const attr4 = (item.Attribute_4 ?? "").trim();
+  const raw = toL3.length > 0 ? toL3 : invL3.length > 0 ? invL3 : attr4;
+  return raw.toUpperCase();
+}
+
 /** Stable id for ReceiptNoPriceLock: workflow RecordId if present, else Company|Receipt|Reference. */
 export function getReceiptLockRecordId(entry: ReceiptOrderListEntry): string {
   const rid = entry.recordId != null ? String(entry.recordId).trim() : "";
   if (rid.length > 0) return rid;
   const rc = entry.payload.Receipt_Confirmation;
   return [rc.Company, rc.Inbound_Receipt_No, rc.Inbound_Reference_No].map((x) => (x ?? "").trim()).join("|");
+}
+
+/** Normalize Flowgear / directory username for lock comparison. */
+export function normalizeLockUserLabel(value: string): string {
+  return value.trim().toLowerCase().replace(/\\/g, "/");
+}
+
+/** True if two lock-holder labels refer to the same principal (case-insensitive). */
+export function lockUsersMatch(a: string, b: string): boolean {
+  const x = normalizeLockUserLabel(a);
+  const y = normalizeLockUserLabel(b);
+  if (x.length === 0 || y.length === 0) return false;
+  return x === y || x.endsWith(`/${y}`) || y.endsWith(`/${x}`);
 }
 
 /** Item code that is never shown in the UI (hidden from table and totals). */
@@ -187,6 +209,53 @@ export function getReceiptDetailDateForFilter(payload: ReceiptConfirmationPayloa
   return raw && raw.length > 0 ? raw : null;
 }
 
+function receiptDetailDateSortKey(payload: ReceiptConfirmationPayload): number {
+  const raw = getReceiptDetailDateForFilter(payload);
+  if (raw == null || raw.length === 0) return Number.POSITIVE_INFINITY;
+  const t = Date.parse(raw);
+  if (!Number.isNaN(t)) return t;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+  if (m) {
+    return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
+  return Number.POSITIVE_INFINITY;
+}
+
+/** Sort orders by receipt detail date (RD or first date), ascending; missing dates last. */
+export function compareReceiptOrdersByDetailDateAsc(a: ReceiptOrderListEntry, b: ReceiptOrderListEntry): number {
+  const ka = receiptDetailDateSortKey(a.payload);
+  const kb = receiptDetailDateSortKey(b.payload);
+  if (ka !== kb) return ka - kb;
+  const refA = (a.payload.Receipt_Confirmation.Inbound_Reference_No ?? "").trim();
+  const refB = (b.payload.Receipt_Confirmation.Inbound_Reference_No ?? "").trim();
+  const refCmp = refA.localeCompare(refB, undefined, { numeric: true, sensitivity: "base" });
+  if (refCmp !== 0) return refCmp;
+  return getReceiptLockRecordId(a).localeCompare(getReceiptLockRecordId(b));
+}
+
+/** Same date key as ascending, but `desc` is newest first; rows with no date stay last. */
+export function compareReceiptOrdersByDetailDate(
+  a: ReceiptOrderListEntry,
+  b: ReceiptOrderListEntry,
+  direction: "asc" | "desc"
+): number {
+  const ka = receiptDetailDateSortKey(a.payload);
+  const kb = receiptDetailDateSortKey(b.payload);
+  const inf = Number.POSITIVE_INFINITY;
+  const aMiss = ka === inf;
+  const bMiss = kb === inf;
+  if (aMiss && bMiss) return compareReceiptOrdersByDetailDateAsc(a, b);
+  if (aMiss) return 1;
+  if (bMiss) return -1;
+  if (ka !== kb) {
+    return direction === "asc" ? ka - kb : kb - ka;
+  }
+  const refA = (a.payload.Receipt_Confirmation.Inbound_Reference_No ?? "").trim();
+  const refB = (b.payload.Receipt_Confirmation.Inbound_Reference_No ?? "").trim();
+  const refCmp = refA.localeCompare(refB, undefined, { numeric: true, sensitivity: "base" });
+  if (refCmp !== 0) return refCmp;
+  return getReceiptLockRecordId(a).localeCompare(getReceiptLockRecordId(b));
+}
 
 /**
  * Normalizes list entry: derive rate (R/UOM) from Gross_Price or Order_Price when those represent line totals.

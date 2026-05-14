@@ -48,7 +48,7 @@ const STANDALONE_API_URL =
   (typeof import.meta !== "undefined" && (import.meta as { env?: Record<string, string> }).env?.VITE_STANDALONE_API_URL) ||
   "";
 
-/** Relative GET URL for per-receipt lock (DashboardId, RecordId, Username). */
+/** Relative URL for per-receipt lock: POST with query ?DashboardId=&Username= (same shape as the prior GET binding). */
 const RECEIPT_LOCK_PATH = "/v2/ReceiptNoPriceLock";
 
 /** Relative path for posting receipt confirmation to Procurement & Inbound (ERP). */
@@ -405,6 +405,10 @@ export async function getPendingReceipt(): Promise<ReceiptConfirmationPayload | 
 /** Base path for the default orders-list workflow (before query string). */
 export const ORDERS_LIST_PATH = DEFAULT_ORDERS_LIST_PATH;
 
+/**
+ * @deprecated Locking uses each list row's `recordId` (support table XML `Id`) as `DashboardId` in
+ * POST `/v2/ReceiptNoPriceLock`. This env is unused by the app.
+ */
 export function getReceiptLockDashboardId(): string {
   const v =
     typeof import.meta !== "undefined"
@@ -413,46 +417,139 @@ export function getReceiptLockDashboardId(): string {
   return (v ?? "").trim();
 }
 
-/** Console user for lock API; override with VITE_RECEIPT_LOCK_USERNAME when SDK user is unavailable. */
-export function getReceiptLockUsernameForRequest(): string {
-  const viteEnv =
-    typeof import.meta !== "undefined" ? ((import.meta as ImportMeta).env as Record<string, string | undefined>) : {};
-  const fromEnv = (viteEnv.VITE_RECEIPT_LOCK_USERNAME ?? "").trim();
-  if (fromEnv.length > 0) return fromEnv;
-  try {
-    const Sdk = Flowgear.Sdk as unknown as {
-      getUser?: () => { name?: string; userName?: string; userNameDisplay?: string; email?: string };
-    };
-    const u = Sdk.getUser?.();
-    const cand = [u?.userName, u?.userNameDisplay, u?.name, u?.email].find(
-      (x) => typeof x === "string" && x.trim().length > 0
-    );
-    if (cand) return cand.trim();
-  } catch {
-    /* not embedded */
+/** In-memory username from last `resolveReceiptLockUsernameForRequest` (Flowgear `getContext`). */
+let receiptLockIdentityCache = "";
+
+function pickUsernameFromUnknown(value: unknown, depth: number): string {
+  if (value == null || depth < 0) return "";
+  if (typeof value === "string") {
+    const t = value.trim();
+    return t.length > 0 ? t : "";
+  }
+  if (typeof value !== "object") return "";
+
+  const o = value as Record<string, unknown>;
+  const priorityKeys = [
+    "userName",
+    "userNameDisplay",
+    "UserName",
+    "username",
+    "displayName",
+    "DisplayName",
+    "name",
+    "Name",
+    "email",
+    "Email",
+    "mail",
+    "Mail",
+    "preferred_username",
+    "preferredUsername",
+    "upn",
+    "unique_name",
+    "uniqueName",
+    "login",
+    "Login",
+    "accountName",
+    "AccountName",
+  ];
+  for (const k of priorityKeys) {
+    const v = o[k];
+    if (typeof v === "string" && v.trim().length > 0) return v.trim();
+  }
+
+  const nestedKeys = [
+    "user",
+    "User",
+    "profile",
+    "Profile",
+    "account",
+    "Account",
+    "identity",
+    "Identity",
+    "claims",
+    "Claims",
+    "context",
+    "Context",
+  ];
+  for (const k of nestedKeys) {
+    const s = pickUsernameFromUnknown(o[k], depth - 1);
+    if (s.length > 0) return s;
   }
   return "";
 }
 
 /**
- * Declares server-side lock for a receipt row. Pass username null (sent as query null) to release/unlock.
+ * Resolves the signed-in Console user for ReceiptNoPriceLock. Uses `Flowgear.Sdk.getContext()` (the published SDK
+ * does not expose `getUser`). Call this before locking; result is cached for synchronous readers.
  */
-export async function setReceiptNoPriceLock(params: {
-  dashboardId: string;
-  recordId: string;
-  username: string | null;
-}): Promise<void> {
-  const { dashboardId, recordId, username } = params;
-  if (dashboardId.trim().length === 0 || recordId.trim().length === 0) return;
+export async function resolveReceiptLockUsernameForRequest(): Promise<string> {
+  const viteEnv =
+    typeof import.meta !== "undefined" ? ((import.meta as ImportMeta).env as Record<string, string | undefined>) : {};
+  const fromEnv = (viteEnv.VITE_RECEIPT_LOCK_USERNAME ?? "").trim();
+  if (fromEnv.length > 0) {
+    receiptLockIdentityCache = fromEnv;
+    return fromEnv;
+  }
+
+  try {
+    const ctx: unknown = await Flowgear.Sdk.getContext();
+    const picked = pickUsernameFromUnknown(ctx, 4);
+    if (picked.length > 0) {
+      receiptLockIdentityCache = picked;
+      return picked;
+    }
+  } catch {
+    /* not embedded or host did not respond */
+  }
+
+  try {
+    const Sdk = Flowgear.Sdk as unknown as { getUser?: () => unknown };
+    const picked = pickUsernameFromUnknown(Sdk.getUser?.(), 2);
+    if (picked.length > 0) {
+      receiptLockIdentityCache = picked;
+      return picked;
+    }
+  } catch {
+    /* optional future SDK */
+  }
+
+  return "";
+}
+
+/** Console user for lock API; override with VITE_RECEIPT_LOCK_USERNAME. Prefer priming via `resolveReceiptLockUsernameForRequest` when embedded. */
+export function getReceiptLockUsernameForRequest(): string {
+  const viteEnv =
+    typeof import.meta !== "undefined" ? ((import.meta as ImportMeta).env as Record<string, string | undefined>) : {};
+  const fromEnv = (viteEnv.VITE_RECEIPT_LOCK_USERNAME ?? "").trim();
+  if (fromEnv.length > 0) return fromEnv;
+  if (receiptLockIdentityCache.length > 0) return receiptLockIdentityCache;
+  return "";
+}
+
+/** Build relative URL for SDK invoke: `/v2/ReceiptNoPriceLock?DashboardId=…&Username=…` */
+export function receiptNoPriceLockInvokePath(dashboardId: string, username: string | null): string {
+  const id = dashboardId.trim();
   const qs = new URLSearchParams();
-  qs.set("DashboardId", dashboardId.trim());
-  qs.set("RecordId", recordId.trim());
+  qs.set("DashboardId", id);
   if (username != null && username.trim().length > 0) {
     qs.set("Username", username.trim());
   } else {
     qs.set("Username", "null");
   }
-  await Flowgear.Sdk.invoke("GET", `${RECEIPT_LOCK_PATH}?${qs.toString()}`);
+  return `${RECEIPT_LOCK_PATH}?${qs.toString()}`;
+}
+
+/**
+ * Declares server-side lock for a support-dashboard row. `dashboardId` is the list row Id (e.g. XML &lt;Id&gt;).
+ * POST with query string `DashboardId` and `Username` (same as the old GET); pass username null → query `Username=null`.
+ */
+export async function setReceiptNoPriceLock(params: {
+  dashboardId: string;
+  username: string | null;
+}): Promise<void> {
+  const dashboardId = params.dashboardId.trim();
+  if (dashboardId.length === 0) return;
+  await Flowgear.Sdk.invoke("POST", receiptNoPriceLockInvokePath(dashboardId, params.username));
 }
 
 export async function getOrdersList(
