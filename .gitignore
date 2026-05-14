@@ -34,3 +34,13 @@ azure-function/local.settings.json
 
 # Publish ZIPs (build artifacts)
 ReceiptConfirmationApp-*.zip
+cch-price-capture-1.0.0.9.zip
+cch-price-capture-2.0.0.1.zip
+cch-price-capture-2.0.0.2.zip
+cch-price-capture-2.0.0.3.zip
+cch-price-capture-2.0.0.4.zip
+cch-price-capture-2.0.0.5.zip
+cch-price-capture-2.0.0.6.zip
+cch-price-capture-2.0.0.7.zip
+cch-price-capture-2.0.0.8.zip
+cch-price-capture-2.0.0.9.zip

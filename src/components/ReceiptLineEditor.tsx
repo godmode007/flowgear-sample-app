@@ -1,9 +1,19 @@
 import { useMemo } from "react";
-import type { ReceiptConfirmationItem } from "../models/receiptConfirmation";
 
 interface ReceiptLineEditorProps {
-  item: ReceiptConfirmationItem;
-  onOrderPriceChange: (lineNo: string, value: number | null) => void;
+  rowKey: string;
+  lineLabel: string;
+  itemCode: string;
+  description: string;
+  inventoryDisplay: string;
+  quantity: number;
+  netWeight: number;
+  uom: string;
+  holdCode?: string;
+  rate: number | null;
+  rateReadOnly?: boolean;
+  isWeightBased: boolean;
+  onOrderPriceChange: (value: number | null) => void;
 }
 
 function round2(n: number): number {
@@ -11,53 +21,72 @@ function round2(n: number): number {
 }
 
 export default function ReceiptLineEditor({
-  item,
+  rowKey,
+  lineLabel,
+  itemCode,
+  description,
+  inventoryDisplay,
+  quantity,
+  netWeight,
+  uom,
+  holdCode,
+  rate,
+  rateReadOnly = false,
+  isWeightBased,
   onOrderPriceChange,
 }: ReceiptLineEditorProps) {
-  const netWeight = item.Net_Weight_Shipped;
-  const rate = item.Order_Price;
-
   const rateDisplay = rate != null ? String(round2(rate)) : "";
 
   const displayTotal = useMemo(() => {
-    if (rate != null && netWeight > 0) return round2(rate * netWeight);
-    return null;
-  }, [rate, netWeight]);
+    if (rate == null) return null;
+    if (isWeightBased) return round2(rate * netWeight);
+    return round2(rate * quantity);
+  }, [rate, isWeightBased, netWeight, quantity]);
 
   function handleRateChange(e: React.ChangeEvent<HTMLInputElement>) {
     const v = e.target.value.trim();
     if (v === "") {
-      onOrderPriceChange(item.Line_No, null);
+      onOrderPriceChange(null);
       return;
     }
     const r = parseFloat(v);
     if (!Number.isNaN(r)) {
-      onOrderPriceChange(item.Line_No, round2(r));
+      onOrderPriceChange(round2(r));
     }
   }
 
-  const invL3 = item.Inventory_Level3 ?? item.Line_Stock_Details?.[0]?.To_Inventory_L3 ?? "";
-  const description = item.Item_Description ?? "";
-
   return (
-    <tr className="receipt-tr">
-      <td className="receipt-td receipt-td-line text-align-left">{item.Line_No}</td>
-      <td className="receipt-td receipt-td-item text-align-left">{item.Item_Code}</td>
+    <tr className="receipt-tr" key={rowKey}>
+      <td className="receipt-td receipt-td-line text-align-left">{lineLabel}</td>
+      <td className="receipt-td receipt-td-item text-align-left">{itemCode}</td>
       <td className="receipt-td receipt-td-desc text-align-left">{description}</td>
-      <td className="receipt-td receipt-td-inv text-align-left">{invL3}</td>
-      <td className="receipt-td receipt-td-num text-align-right">{item.Quantity}</td>
+      <td className="receipt-td receipt-td-inv text-align-left">{inventoryDisplay}</td>
+      {holdCode !== undefined && (
+        <td className="receipt-td receipt-td-hold text-align-left">{holdCode || "—"}</td>
+      )}
+      <td className="receipt-td receipt-td-num text-align-right">{quantity}</td>
       <td className="receipt-td receipt-td-num text-align-right">{netWeight}</td>
+      <td className="receipt-td receipt-td-uom text-align-left">{uom}</td>
       <td className="receipt-td receipt-td-rate text-align-right">
-        <input
-          type="number"
-          step="any"
-          min="0"
-          className="receipt-input-price"
-          placeholder="0.00"
-          value={rateDisplay}
-          onChange={handleRateChange}
-          aria-label={`Rate per KG for line ${item.Line_No}`}
-        />
+        {rateReadOnly ? (
+          <span
+            className="receipt-rate-readonly"
+            title="Another tab may be editing this receipt. Close it or wait for the lock to clear."
+          >
+            {rateDisplay || "—"}
+          </span>
+        ) : (
+          <input
+            type="number"
+            step="any"
+            min="0.01"
+            className="receipt-input-price"
+            placeholder="0.00"
+            value={rateDisplay}
+            onChange={handleRateChange}
+            aria-label={`Rate (R per UOM) for line ${lineLabel}`}
+          />
+        )}
       </td>
       <td className="receipt-td receipt-td-price text-align-right receipt-td-calculated">
         {displayTotal != null ? displayTotal.toFixed(2) : "—"}

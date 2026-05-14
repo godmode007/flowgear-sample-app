@@ -3,7 +3,7 @@
  * containing base64-encoded JSON (ReceiptConfirmationPayload).
  * Splits into orders (one payload per Table) and returns them as an array.
  */
-import type { ReceiptConfirmationPayload } from "../models/receiptConfirmation";
+import type { ReceiptConfirmationPayload, ReceiptOrderListEntry } from "../models/receiptConfirmation";
 
 function safeParseJson(s: string): unknown {
   try {
@@ -94,6 +94,21 @@ export function parseResultTableJson(jsonString: string): ReceiptConfirmationPay
       if (isReceiptPayload(payload)) out.push(payload);
     } catch {
       /* skip invalid base64 or JSON */
+    }
+  }
+  return out;
+}
+
+/** Plain JSON array of receipt payloads (no Result/Table wrapper). */
+export function parseResultTableJsonRows(jsonString: string): ReceiptOrderListEntry[] {
+  const trimmed = jsonString.trim();
+  if (!trimmed.startsWith("[")) return [];
+  const parsed = safeParseJson(trimmed);
+  if (!Array.isArray(parsed)) return [];
+  const out: ReceiptOrderListEntry[] = [];
+  for (const item of parsed) {
+    if (isReceiptPayload(item)) {
+      out.push({ payload: item, targetPayloadBase64: null, sourcePayloadBase64: null });
     }
   }
   return out;

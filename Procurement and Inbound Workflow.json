@@ -1,0 +1,582 @@
+{
+  "ActivationContext": 0,
+  "State": 0,
+  "LaunchMethod": 0,
+  "Workflow": {
+    "Version": 1,
+    "Revision": 0,
+    "Nodes": [
+      {
+        "NodeId": "ecce7e2a-00c0-f8eb-53f7-6f7c247a623e",
+        "Name": "VariableBar",
+        "Version": "1.0.0.3",
+        "Properties": [
+          {
+            "FlowDirection": 2,
+            "Behaviour": 0,
+            "CustomPropertyEscaping": 0,
+            "Schema": "",
+            "IsSecret": false,
+            "Name": "FgRequestBody",
+            "TypeName": "apiTypes.String",
+            "ExtendedType": 4,
+            "Value": "{\r\n  \"Receipt_Confirmation\": {\r\n    \"Trading_Partner\": \"BOXER1001\",\r\n    \"Company\": \"S1\",\r\n    \"Warehouse_Code\": \"S10\",\r\n    \"Inbound_Reference_No\": \"500000335\",\r\n    \"Probill_Number\": \"LAQ_DEV07\",\r\n    \"Purchase_Order_No\": null,\r\n    \"Inbound_Receipt_No\": \"279\",\r\n    \"Order_Type\": \"REDD\",\r\n    \"Service_Type\": null,\r\n    \"Action\": \"A\",\r\n    \"Comments\": null,\r\n    \"Supplier\": \"S-SAME0001\",\r\n    \"Customer_Reference\": null,\r\n    \"Customer_Alternate_Reference\": null,\r\n    \"Delivery_Number\": null,\r\n    \"Currency\": null,\r\n    \"Date_Details\": {\r\n      \"Dates\": [\r\n        {\r\n          \"Date_Identifier\": \"RD\",\r\n          \"Date\": \"2026-02-17T08:14:29.257Z\"\r\n        }\r\n      ]\r\n    },\r\n    \"Address_Details\": {\r\n      \"Address\": [\r\n        {\r\n          \"Address_Type\": \"SF \",\r\n          \"Address_Code\": \"\",\r\n          \"Name\": \"SAME AS CUSTOMER\",\r\n          \"Address_Line_01\": null,\r\n          \"Address_Line_02\": null,\r\n          \"Address_Line_03\": null,\r\n          \"Suburb\": null,\r\n          \"City\": null,\r\n          \"Country\": null,\r\n          \"Zip_Code\": null,\r\n          \"Telephone_No\": null,\r\n          \"Mobile_No\": null,\r\n          \"Email_Address\": null,\r\n          \"Contact_Name\": null\r\n        }\r\n      ]\r\n    },\r\n    \"Additional_References\": {\r\n      \"Reference\": [\r\n        {\r\n          \"Reference_Type\": \"Temp F\",\r\n          \"Reference_Description\": \"-3.00\",\r\n          \"Reference_Value\": \"1140\"\r\n        },\r\n        {\r\n          \"Reference_Type\": \"Temp M\",\r\n          \"Reference_Description\": \"-4.00\",\r\n          \"Reference_Value\": \"1140\"\r\n        },\r\n        {\r\n          \"Reference_Type\": \"Temp B\",\r\n          \"Reference_Description\": \"-5.00\",\r\n          \"Reference_Value\": \"1140\"\r\n        },\r\n        {\r\n          \"Reference_Type\": \"Vessel\",\r\n          \"Reference_Description\": \"INTE_TEST_03\",\r\n          \"Reference_Value\": \"1090\"\r\n        },\r\n        {\r\n          \"Reference_Type\": \"Seal\",\r\n          \"Reference_Description\": \"INTE_TEST_031\",\r\n          \"Reference_Value\": null\r\n        },\r\n        {\r\n          \"Reference_Type\": \"BOE NR\",\r\n          \"Reference_Description\": \"\",\r\n          \"Reference_Value\": null\r\n        },\r\n        {\r\n          \"Reference_Type\": \"BOE Date\",\r\n          \"Reference_Description\": \"\",\r\n          \"Reference_Value\": null\r\n        },\r\n        {\r\n          \"Reference_Type\": \"DIMS\",\r\n          \"Reference_Description\": null,\r\n          \"Reference_Value\": null\r\n        },\r\n        {\r\n          \"Reference_Type\": \"GUID\",\r\n          \"Reference_Description\": \"B837E1A3-9D6F-488B-82C1-42859F6D2522\",\r\n          \"Reference_Value\": null\r\n        }\r\n      ]\r\n    },\r\n    \"Shipping_Instructions\": {\r\n      \"Instructions\": null\r\n    },\r\n    \"Items\": [\r\n      {\r\n        \"Line_No\": \"1\",\r\n        \"Item_Code\": \"REDELIVERY\",\r\n        \"Alternate_Identifier\": null,\r\n        \"Inventory_Level2\": \"500000335\",\r\n        \"Inventory_Level4\": \"PFI-001\",\r\n        \"Attribute_1\": null,\r\n        \"Attribute_2\": null,\r\n        \"Attribute_3\": null,\r\n        \"Attribute_4\": null,\r\n        \"Expiry_Date\": \"20270216\",\r\n        \"Base_UOM\": \"KG\",\r\n        \"Unit_Of_Measure\": \"CS\",\r\n        \"Quantity\": 100,\r\n        \"Weight_Unit_Of_Measure\": \"KG\",\r\n        \"Net_Weight_Shipped\": 1100,\r\n        \"Order_Price\": null,\r\n        \"Remarks\": null,\r\n        \"Reason_Code\": \"    \",\r\n        \"GUID\": \"F9687C9A-2A79-4AAC-927C-0409E143764F\",\r\n        \"Hold_Code\": \"\",\r\n        \"Line_Stock_Details\": [\r\n          {\r\n            \"From_Site\": null,\r\n            \"From_Inventory_L3\": null,\r\n            \"From_Hold_Code\": null,\r\n            \"From_Location_Type\": null,\r\n            \"From_Shippable_Indicator\": null,\r\n            \"From_Weight_UOM\": null,\r\n            \"From_Net_Weight_Received\": null,\r\n            \"To_Site\": \"S10\",\r\n            \"To_Inventory_L3\": \"PFI-001\",\r\n            \"To_Hold_Code\": null,\r\n            \"To_Location_Type\": \"RETI\",\r\n            \"To_Shippable_Indicator\": \"Y\",\r\n            \"To_Weight_UOM\": \"KG\",\r\n            \"To_Net_Weight_Received\": \"1100.0\"\r\n          }\r\n        ]\r\n      },\r\n      {\r\n        \"Line_No\": \"2\",\r\n        \"Item_Code\": \"REDELIVERY\",\r\n        \"Alternate_Identifier\": null,\r\n        \"Inventory_Level2\": \"500000335\",\r\n        \"Inventory_Level4\": \"M3-1\",\r\n        \"Attribute_1\": null,\r\n        \"Attribute_2\": null,\r\n        \"Attribute_3\": null,\r\n        \"Attribute_4\": null,\r\n        \"Expiry_Date\": \"20270216\",\r\n        \"Base_UOM\": \"KG\",\r\n        \"Unit_Of_Measure\": \"CS\",\r\n        \"Quantity\": 100,\r\n        \"Weight_Unit_Of_Measure\": \"KG\",\r\n        \"Net_Weight_Shipped\": 46,\r\n        \"Order_Price\": null,\r\n        \"Remarks\": null,\r\n        \"Reason_Code\": \"    \",\r\n        \"GUID\": \"88FC2B33-F450-4450-BBE4-26834C519579\",\r\n        \"Hold_Code\": \"\",\r\n        \"Line_Stock_Details\": [\r\n          {\r\n            \"From_Site\": null,\r\n            \"From_Inventory_L3\": null,\r\n            \"From_Hold_Code\": null,\r\n            \"From_Location_Type\": null,\r\n            \"From_Shippable_Indicator\": null,\r\n            \"From_Weight_UOM\": null,\r\n            \"From_Net_Weight_Received\": null,\r\n            \"To_Site\": \"S10\",\r\n            \"To_Inventory_L3\": \"M3-1\",\r\n            \"To_Hold_Code\": null,\r\n            \"To_Location_Type\": \"RETI\",\r\n            \"To_Shippable_Indicator\": \"Y\",\r\n            \"To_Weight_UOM\": \"KG\",\r\n            \"To_Net_Weight_Received\": \"46.0\"\r\n          }\r\n        ]\r\n      }\r\n    ],\r\n    \"Totals\": {\r\n      \"Total_No_Of_Lines\": 2,\r\n      \"Total_Quantity\": 200\r\n    }\r\n  }\r\n}"
+          },
+          {
+            "FlowDirection": 1,
+            "Behaviour": 0,
+            "CustomPropertyEscaping": 0,
+            "IsSecret": false,
+            "Name": "FgResponseCode",
+            "TypeName": "apiTypes.String",
+            "ExtendedType": 0
+          },
+          {
+            "FlowDirection": 1,
+            "Behaviour": 0,
+            "CustomPropertyEscaping": 0,
+            "IsSecret": false,
+            "Name": "FgResponseBody",
+            "TypeName": "apiTypes.String",
+            "ExtendedType": 4
+          }
+        ],
+        "HasInput": false,
+        "Outputs": [],
+        "NodeVisual": {
+          "X": 6100,
+          "Y": 3640
+        },
+        "SupportsCustomInputProperties": true,
+        "SupportsCustomOutputProperties": true,
+        "SupportsTest": true,
+        "SupportsAcquireMetadata": false,
+        "SupportsListSamples": false,
+        "DisplayName": "Variable Bar",
+        "NodeType": 1,
+        "Key": "latest",
+        "RuntimeVersion": 1,
+        "AccountKey": "c9bfa373-023b-4e90-a876-3b25ed7b0ce0",
+        "PublishState": 3,
+        "Metadata": {
+          "ModifiedTime": "2024-02-22T15:22:18.4373094+00:00",
+          "Username": "rikard.schouwstra@flowgear.net",
+          "UserKey": "74f27536-943e-4ac8-a647-c21515509130"
+        }
+      },
+      {
+        "NodeId": "e89ad3d5-3de4-9098-8a7a-4209c8070938",
+        "Name": "Start",
+        "Version": "1.0.0.3",
+        "Properties": [
+          {
+            "FlowDirection": 2,
+            "Behaviour": 0,
+            "CustomPropertyEscaping": 0,
+            "IsSecret": false,
+            "Name": "Last_Error_Info",
+            "TypeName": "System.String",
+            "ExtendedType": 0
+          }
+        ],
+        "HasInput": false,
+        "Outputs": [
+          {
+            "Label": "Start",
+            "IsException": false,
+            "IsDefault": true
+          },
+          {
+            "Label": "Run_Now",
+            "IsException": false,
+            "IsDefault": false
+          },
+          {
+            "Label": "Any_Error",
+            "IsException": true,
+            "IsDefault": false
+          },
+          {
+            "Label": "Unhandled_Error",
+            "IsException": true,
+            "IsDefault": false
+          }
+        ],
+        "NodeVisual": {
+          "X": 6100,
+          "Y": 3874
+        },
+        "DisplayName": "Start",
+        "NodeType": 0,
+        "RuntimeVersion": 1,
+        "PublishState": 0
+      },
+      {
+        "NodeId": "6fc09723-3e15-63a5-df03-102817ad8e65",
+        "Name": "Choose",
+        "Version": "1.0.0.1",
+        "Properties": [
+          {
+            "FlowDirection": 1,
+            "Behaviour": 0,
+            "CustomPropertyEscaping": 0,
+            "IsSecret": false,
+            "Name": "Expression",
+            "TypeName": "System.String",
+            "ExtendedType": 0
+          }
+        ],
+        "HasInput": true,
+        "Outputs": [
+          {
+            "Label": "Error",
+            "IsException": true,
+            "IsDefault": false
+          },
+          {
+            "Label": "N",
+            "IsException": false,
+            "IsDefault": false
+          },
+          {
+            "Label": "Misc Rec/Iss",
+            "IsException": false,
+            "IsDefault": false
+          },
+          {
+            "Label": "Stock Change",
+            "IsException": false,
+            "IsDefault": false
+          },
+          {
+            "Label": "PO",
+            "IsException": false,
+            "IsDefault": false
+          },
+          {
+            "Label": "CORR",
+            "IsException": false,
+            "IsDefault": false
+          },
+          {
+            "Label": "IBTC",
+            "IsException": false,
+            "IsDefault": false
+          },
+          {
+            "Label": "IBTO",
+            "IsException": false,
+            "IsDefault": false
+          },
+          {
+            "Label": "LF",
+            "IsException": false,
+            "IsDefault": false
+          },
+          {
+            "Label": "R",
+            "IsException": false,
+            "IsDefault": false
+          },
+          {
+            "Label": "REDD",
+            "IsException": false,
+            "IsDefault": false
+          },
+          {
+            "Label": "TF",
+            "IsException": false,
+            "IsDefault": false
+          },
+          {
+            "Label": "TFB",
+            "IsException": false,
+            "IsDefault": false
+          },
+          {
+            "Label": "TFC",
+            "IsException": false,
+            "IsDefault": false
+          }
+        ],
+        "NodeVisual": {
+          "X": 6405,
+          "Y": 3874
+        },
+        "SupportsTest": true,
+        "SupportsAcquireMetadata": false,
+        "SupportsListSamples": false,
+        "DisplayName": "Choose",
+        "NodeType": 2,
+        "Key": "latest",
+        "RuntimeVersion": 1,
+        "AccountKey": "c9bfa373-023b-4e90-a876-3b25ed7b0ce0",
+        "PublishState": 3,
+        "Metadata": {
+          "ModifiedTime": "2024-02-22T15:20:46.847626+00:00",
+          "Username": "rikard.schouwstra@flowgear.net",
+          "UserKey": "74f27536-943e-4ac8-a647-c21515509130"
+        }
+      },
+      {
+        "NodeId": "cd4a484d-2740-0006-6203-e91fc592f690",
+        "Name": "Workflow",
+        "ShortDescription": "Sage Receipt Confirmation to P-Receipt (Transform)",
+        "Version": "1.0.0.3",
+        "Properties": [
+          {
+            "FlowDirection": 0,
+            "Behaviour": 0,
+            "CustomPropertyEscaping": 0,
+            "IsSecret": false,
+            "Name": "MaxParallelCalls",
+            "TypeName": "apiTypes.Int32",
+            "ExtendedType": 0,
+            "Value": 1
+          },
+          {
+            "FlowDirection": 0,
+            "Behaviour": 0,
+            "CustomPropertyEscaping": 0,
+            "IsSecret": false,
+            "Name": "WorkflowId",
+            "TypeName": "apiTypes.Guid",
+            "ExtendedType": 0,
+            "Value": "1e07d562-ea68-4c7a-a9d4-427076669b4f"
+          },
+          {
+            "FlowDirection": 1,
+            "Behaviour": 0,
+            "CustomPropertyEscaping": 0,
+            "IsSecret": false,
+            "Name": "FgRequestBody",
+            "TypeName": "apiTypes.String",
+            "ExtendedType": 4
+          },
+          {
+            "FlowDirection": 2,
+            "Behaviour": 0,
+            "CustomPropertyEscaping": 0,
+            "IsSecret": false,
+            "Name": "FgResponseBody",
+            "TypeName": "apiTypes.String",
+            "ExtendedType": 4
+          },
+          {
+            "FlowDirection": 2,
+            "Behaviour": 0,
+            "CustomPropertyEscaping": 0,
+            "IsSecret": false,
+            "Name": "FgResponseCode",
+            "TypeName": "apiTypes.String",
+            "ExtendedType": 0
+          }
+        ],
+        "HasInput": true,
+        "Outputs": [
+          {
+            "Label": "",
+            "IsException": false,
+            "IsDefault": true
+          },
+          {
+            "Label": "Error",
+            "IsException": true,
+            "IsDefault": false
+          }
+        ],
+        "NodeVisual": {
+          "X": 6710,
+          "Y": 3874
+        },
+        "SupportsCustomInputProperties": true,
+        "SupportsCustomOutputProperties": true,
+        "SupportsTest": true,
+        "SupportsAcquireMetadata": false,
+        "SupportsListSamples": false,
+        "DisplayName": "Workflow",
+        "NodeType": 0,
+        "Key": "latest",
+        "RuntimeVersion": 1,
+        "PublishState": 3,
+        "Metadata": {
+          "ModifiedTime": "2024-02-22T15:22:21.507524+00:00",
+          "Username": "rikard.schouwstra@flowgear.net",
+          "UserKey": "74f27536-943e-4ac8-a647-c21515509130"
+        }
+      },
+      {
+        "NodeId": "45ad6734-e059-8fca-d5b1-aae5fb45399a",
+        "Name": "Workflow",
+        "ShortDescription": "Sage Misc Rec / Iss (Transform)",
+        "Version": "1.0.0.3",
+        "Properties": [
+          {
+            "FlowDirection": 0,
+            "Behaviour": 0,
+            "CustomPropertyEscaping": 0,
+            "IsSecret": false,
+            "Name": "MaxParallelCalls",
+            "TypeName": "apiTypes.Int32",
+            "ExtendedType": 0,
+            "Value": 1
+          },
+          {
+            "FlowDirection": 0,
+            "Behaviour": 0,
+            "CustomPropertyEscaping": 0,
+            "IsSecret": false,
+            "Name": "WorkflowId",
+            "TypeName": "apiTypes.Guid",
+            "ExtendedType": 0,
+            "Value": "141f960a-7f12-4b92-819f-d32d6cba879c"
+          },
+          {
+            "FlowDirection": 1,
+            "Behaviour": 0,
+            "CustomPropertyEscaping": 0,
+            "IsSecret": false,
+            "Name": "FgRequestBody",
+            "TypeName": "apiTypes.String",
+            "ExtendedType": 4
+          }
+        ],
+        "HasInput": true,
+        "Outputs": [
+          {
+            "Label": "",
+            "IsException": false,
+            "IsDefault": true
+          },
+          {
+            "Label": "Error",
+            "IsException": true,
+            "IsDefault": false
+          }
+        ],
+        "NodeVisual": {
+          "X": 7015,
+          "Y": 3874
+        },
+        "SupportsCustomInputProperties": true,
+        "SupportsCustomOutputProperties": true,
+        "SupportsTest": true,
+        "SupportsAcquireMetadata": false,
+        "SupportsListSamples": false,
+        "DisplayName": "Workflow",
+        "NodeType": 0,
+        "Key": "latest",
+        "RuntimeVersion": 1,
+        "PublishState": 3,
+        "Metadata": {
+          "ModifiedTime": "2024-02-22T15:22:21.507524+00:00",
+          "Username": "rikard.schouwstra@flowgear.net",
+          "UserKey": "74f27536-943e-4ac8-a647-c21515509130"
+        }
+      },
+      {
+        "NodeId": "8d3658db-67a9-bb39-f946-d61aeb73847c",
+        "Name": "Workflow",
+        "ShortDescription": "Sage Stock Change (Status) (Transform)",
+        "Version": "1.0.0.3",
+        "Properties": [
+          {
+            "FlowDirection": 0,
+            "Behaviour": 0,
+            "CustomPropertyEscaping": 0,
+            "IsSecret": false,
+            "Name": "MaxParallelCalls",
+            "TypeName": "apiTypes.Int32",
+            "ExtendedType": 0,
+            "Value": 1
+          },
+          {
+            "FlowDirection": 0,
+            "Behaviour": 0,
+            "CustomPropertyEscaping": 0,
+            "IsSecret": false,
+            "Name": "WorkflowId",
+            "TypeName": "apiTypes.Guid",
+            "ExtendedType": 0,
+            "Value": "957d45ef-899d-42d6-9ca3-32560ac3014a"
+          },
+          {
+            "FlowDirection": 1,
+            "Behaviour": 0,
+            "CustomPropertyEscaping": 0,
+            "IsSecret": false,
+            "Name": "FgRequestBody",
+            "TypeName": "apiTypes.String",
+            "ExtendedType": 4
+          }
+        ],
+        "HasInput": true,
+        "Outputs": [
+          {
+            "Label": "",
+            "IsException": false,
+            "IsDefault": true
+          },
+          {
+            "Label": "Error",
+            "IsException": true,
+            "IsDefault": false
+          }
+        ],
+        "NodeVisual": {
+          "X": 7320,
+          "Y": 3874
+        },
+        "SupportsCustomInputProperties": true,
+        "SupportsCustomOutputProperties": true,
+        "SupportsTest": true,
+        "SupportsAcquireMetadata": false,
+        "SupportsListSamples": false,
+        "DisplayName": "Workflow",
+        "NodeType": 0,
+        "Key": "latest",
+        "RuntimeVersion": 1,
+        "PublishState": 3,
+        "Metadata": {
+          "ModifiedTime": "2024-02-22T15:22:21.507524+00:00",
+          "Username": "rikard.schouwstra@flowgear.net",
+          "UserKey": "74f27536-943e-4ac8-a647-c21515509130"
+        }
+      }
+    ],
+    "FlowConnectors": [
+      {
+        "FlowConnectorType": 1,
+        "SourceNodeId": "e89ad3d5-3de4-9098-8a7a-4209c8070938",
+        "TargetNodeId": "6fc09723-3e15-63a5-df03-102817ad8e65",
+        "SourceName": "Start"
+      },
+      {
+        "FlowConnectorType": 1,
+        "SourceNodeId": "6fc09723-3e15-63a5-df03-102817ad8e65",
+        "TargetNodeId": "45ad6734-e059-8fca-d5b1-aae5fb45399a",
+        "SourceName": "Misc Rec/Iss"
+      },
+      {
+        "FlowConnectorType": 2,
+        "SourceNodeId": "ecce7e2a-00c0-f8eb-53f7-6f7c247a623e",
+        "TargetNodeId": "45ad6734-e059-8fca-d5b1-aae5fb45399a",
+        "SourceName": "FgRequestBody",
+        "TargetName": "FgRequestBody"
+      },
+      {
+        "FlowConnectorType": 2,
+        "SourceNodeId": "ecce7e2a-00c0-f8eb-53f7-6f7c247a623e",
+        "TargetNodeId": "cd4a484d-2740-0006-6203-e91fc592f690",
+        "SourceName": "FgRequestBody",
+        "TargetName": "FgRequestBody"
+      },
+      {
+        "FlowConnectorType": 1,
+        "SourceNodeId": "6fc09723-3e15-63a5-df03-102817ad8e65",
+        "TargetNodeId": "8d3658db-67a9-bb39-f946-d61aeb73847c",
+        "SourceName": "Stock Change"
+      },
+      {
+        "FlowConnectorType": 2,
+        "SourceNodeId": "ecce7e2a-00c0-f8eb-53f7-6f7c247a623e",
+        "TargetNodeId": "8d3658db-67a9-bb39-f946-d61aeb73847c",
+        "SourceName": "FgRequestBody",
+        "TargetName": "FgRequestBody"
+      },
+      {
+        "FlowConnectorType": 1,
+        "SourceNodeId": "6fc09723-3e15-63a5-df03-102817ad8e65",
+        "TargetNodeId": "cd4a484d-2740-0006-6203-e91fc592f690",
+        "SourceName": "N"
+      },
+      {
+        "FlowConnectorType": 1,
+        "SourceNodeId": "6fc09723-3e15-63a5-df03-102817ad8e65",
+        "TargetNodeId": "cd4a484d-2740-0006-6203-e91fc592f690",
+        "SourceName": "PO"
+      },
+      {
+        "FlowConnectorType": 2,
+        "SourceNodeId": "cd4a484d-2740-0006-6203-e91fc592f690",
+        "TargetNodeId": "ecce7e2a-00c0-f8eb-53f7-6f7c247a623e",
+        "SourceName": "FgResponseBody",
+        "TargetName": "FgResponseBody"
+      },
+      {
+        "FlowConnectorType": 2,
+        "SourceNodeId": "cd4a484d-2740-0006-6203-e91fc592f690",
+        "TargetNodeId": "ecce7e2a-00c0-f8eb-53f7-6f7c247a623e",
+        "SourceName": "FgResponseCode",
+        "TargetName": "FgResponseCode"
+      },
+      {
+        "FlowConnectorType": 2,
+        "SourceNodeId": "ecce7e2a-00c0-f8eb-53f7-6f7c247a623e",
+        "TargetNodeId": "6fc09723-3e15-63a5-df03-102817ad8e65",
+        "SourceName": "FgRequestBody",
+        "TargetName": "Expression",
+        "Expression": "Receipt_Confirmation.Order_Type"
+      },
+      {
+        "FlowConnectorType": 1,
+        "SourceNodeId": "6fc09723-3e15-63a5-df03-102817ad8e65",
+        "TargetNodeId": "cd4a484d-2740-0006-6203-e91fc592f690",
+        "SourceName": "REDD"
+      },
+      {
+        "FlowConnectorType": 1,
+        "SourceNodeId": "6fc09723-3e15-63a5-df03-102817ad8e65",
+        "TargetNodeId": "cd4a484d-2740-0006-6203-e91fc592f690",
+        "SourceName": "CORR"
+      },
+      {
+        "FlowConnectorType": 1,
+        "SourceNodeId": "6fc09723-3e15-63a5-df03-102817ad8e65",
+        "TargetNodeId": "cd4a484d-2740-0006-6203-e91fc592f690",
+        "SourceName": "LF"
+      },
+      {
+        "FlowConnectorType": 1,
+        "SourceNodeId": "6fc09723-3e15-63a5-df03-102817ad8e65",
+        "TargetNodeId": "cd4a484d-2740-0006-6203-e91fc592f690",
+        "SourceName": "R"
+      },
+      {
+        "FlowConnectorType": 1,
+        "SourceNodeId": "6fc09723-3e15-63a5-df03-102817ad8e65",
+        "TargetNodeId": "cd4a484d-2740-0006-6203-e91fc592f690",
+        "SourceName": "TF"
+      },
+      {
+        "FlowConnectorType": 1,
+        "SourceNodeId": "6fc09723-3e15-63a5-df03-102817ad8e65",
+        "TargetNodeId": "cd4a484d-2740-0006-6203-e91fc592f690",
+        "SourceName": "TFB"
+      },
+      {
+        "FlowConnectorType": 1,
+        "SourceNodeId": "6fc09723-3e15-63a5-df03-102817ad8e65",
+        "TargetNodeId": "cd4a484d-2740-0006-6203-e91fc592f690",
+        "SourceName": "TFC"
+      }
+    ],
+    "StartNodeId": "e89ad3d5-3de4-9098-8a7a-4209c8070938",
+    "ActivityLogLevelMask": 255
+  },
+  "SiteKey": "c9c862b1-c6d7-452b-a8d4-be5c37d3ed02",
+  "Key": "5309d323-ba21-4e01-a6a8-ff937b250ce9",
+  "Path": "site-c9c862b1-c6d7-452b-a8d4-be5c37d3ed02/workflow-5309d323-ba21-4e01-a6a8-ff937b250ce9.json",
+  "Name": "Procurement & Inbound",
+  "FileHash": "0000023",
+  "RuntimeVersion": 1,
+  "FolderKey": "321d5934-902e-4ffa-82a4-10c5089496ff",
+  "LaunchModeMask": 0,
+  "HttpBindingMethod": "POST",
+  "HttpBindingUrlPattern": "/v2/ProcurementInbound",
+  "Metadata": {
+    "ModifiedTime": "2026-02-19T11:44:28.8719396+00:00",
+    "Username": "james.high@inhancesc.com",
+    "UserKey": "cfbc34bb-6422-4477-bce1-ac501f3f87f3"
+  }
+}

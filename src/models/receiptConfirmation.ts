@@ -106,6 +106,13 @@ export interface ReceiptConfirmationPayload {
   Receipt_Confirmation: ReceiptConfirmationBody;
 }
 
+/** One row from GET list: payload plus optional base64 copies from workflow. */
+export interface ReceiptOrderListEntry {
+  payload: ReceiptConfirmationPayload;
+  targetPayloadBase64: string | null;
+  sourcePayloadBase64: string | null;
+}
+
 /** Item code that is never shown in the UI (hidden from table and totals). */
 export const ZERO_OUT_LINE_ITEM_CODE = "ZERO-OUT-LINE";
 
@@ -121,25 +128,61 @@ export function hasMissingOrderPrice(payload: ReceiptConfirmationPayload): boole
   );
 }
 
+export function hasInvalidOrderPrice(payload: ReceiptConfirmationPayload): boolean {
+  const items = payload.Receipt_Confirmation.Items ?? [];
+  return items.some(
+    (item) => !isZeroOutLine(item) && item.Order_Price != null && item.Order_Price <= 0
+  );
+}
+
+/**
+ * UOM shown per line: Base_UOM Y or BSKG → KG; Base_UOM BSCS → Unit_Of_Measure; otherwise Unit_Of_Measure or Base_UOM.
+ */
+export function displayLineUom(item: ReceiptConfirmationItem): string {
+  const base = (item.Base_UOM ?? "").trim().toUpperCase();
+  if (base === "Y" || base === "BSKG") return "KG";
+  if (base === "BSCS") return (item.Unit_Of_Measure ?? "").trim();
+  const uom = (item.Unit_Of_Measure ?? "").trim();
+  return uom || (item.Base_UOM ?? "").trim();
+}
+
+/** When true, line order total = Net weight × rate; otherwise Quantity × rate. */
+export function lineUsesWeightForOrderPrice(item: ReceiptConfirmationItem): boolean {
+  return displayLineUom(item).trim().toUpperCase() === "KG";
+}
+
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-/** Convert incoming Order_Price (line total) to rate (R/kg) so app state always stores rate. */
-export function normalizePayloadOrderPriceToRate(
-  payload: ReceiptConfirmationPayload
-): ReceiptConfirmationPayload {
+/**
+ * Normalizes list entry: derive rate (R/UOM) from Gross_Price or Order_Price when those represent line totals.
+ */
+export function normalizePayloadOrderPriceToRate(entry: ReceiptOrderListEntry): ReceiptOrderListEntry {
+  const payload = entry.payload;
   return {
-    ...payload,
-    Receipt_Confirmation: {
-      ...payload.Receipt_Confirmation,
-      Items: payload.Receipt_Confirmation.Items.map((item) => {
-        const total = item.Order_Price;
-        const net = item.Net_Weight_Shipped;
-        const rate =
-          total != null && net > 0 ? round2(total / net) : null;
-        return { ...item, Order_Price: rate };
-      }),
+    ...entry,
+    payload: {
+      ...payload,
+      Receipt_Confirmation: {
+        ...payload.Receipt_Confirmation,
+        Items: payload.Receipt_Confirmation.Items.map((item) => {
+          const gross = item.Gross_Price;
+          const total = item.Order_Price;
+          const net = item.Net_Weight_Shipped;
+          const qty = item.Quantity;
+          const byWeight = lineUsesWeightForOrderPrice(item);
+          let rate: number | null = null;
+          if (gross != null && gross > 0) {
+            if (byWeight && net > 0) rate = round2(gross / net);
+            else if (!byWeight && qty > 0) rate = round2(gross / qty);
+          } else if (total != null && total > 0) {
+            if (byWeight && net > 0) rate = round2(total / net);
+            else if (!byWeight && qty > 0) rate = round2(total / qty);
+          }
+          return { ...item, Order_Price: rate };
+        }),
+      },
     },
   };
 }

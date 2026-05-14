@@ -1,6 +1,13 @@
 import { Flowgear } from "flowgear-webapp";
-import type { ReceiptConfirmationPayload } from "../models/receiptConfirmation";
-import { parseResultTableXml, parseResultTableJson } from "../utils/ordersListParser";
+import type {
+  ReceiptConfirmationPayload,
+  ReceiptOrderListEntry,
+} from "../models/receiptConfirmation";
+import {
+  parseResultTableXml,
+  parseResultTableJson,
+  parseResultTableJsonRows,
+} from "../utils/ordersListParser";
 
 /** Thrown when the Flowgear request fails due to not being signed in or session expired. */
 export class AuthError extends Error {
@@ -69,12 +76,59 @@ const GET_PENDING_RECEIPT_PATH: string | null = null;
 
 /**
  * Relative path for the workflow that returns the orders list (Result/Table XML with base64 Content per order).
- * Flowgear path: /v2/ReceiptNoPrice (GET).
- * Override with env: VITE_GET_ORDERS_LIST_PATH if needed.
+ * Flowgear path: GET /v2/ReceiptNoPrice.
+ * Override with env: VITE_GET_ORDERS_LIST_PATH. If set to /v2/SupportIntegrationList (no query), FromDate/ToDate/Records are appended.
  */
-const GET_ORDERS_LIST_PATH: string | null =
-  (typeof import.meta !== "undefined" && (import.meta as { env?: Record<string, string> }).env?.VITE_GET_ORDERS_LIST_PATH) ||
-  "/v2/ReceiptNoPrice";
+const DEFAULT_ORDERS_LIST_PATH = "/v2/ReceiptNoPrice";
+
+const viteEnv =
+  typeof import.meta !== "undefined" ? ((import.meta as ImportMeta).env as Record<string, string | undefined>) : {};
+
+const GET_ORDERS_LIST_PATH_OVERRIDE = (viteEnv.VITE_GET_ORDERS_LIST_PATH ?? "").trim();
+
+const DEFAULT_ORDERS_LIST_RECORDS = Math.max(
+  1,
+  Number.parseInt(String(viteEnv.VITE_ORDERS_LIST_RECORDS ?? "1000"), 10) || 1000
+);
+
+const DEFAULT_ORDERS_LIST_DAYS_BACK = Math.max(
+  1,
+  Number.parseInt(String(viteEnv.VITE_ORDERS_LIST_DAYS_BACK ?? "365"), 10) || 365
+);
+
+function toDateOnlyUtc(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function getDefaultOrdersListDateRange(): { fromDate: string; toDate: string } {
+  const fixedFrom = (viteEnv.VITE_ORDERS_LIST_FROM_DATE ?? "").trim();
+  const fixedTo = (viteEnv.VITE_ORDERS_LIST_TO_DATE ?? "").trim();
+  if (fixedFrom.length > 0 && fixedTo.length > 0) {
+    return { fromDate: fixedFrom, toDate: fixedTo };
+  }
+  const to = new Date();
+  const from = new Date(to);
+  from.setUTCDate(from.getUTCDate() - DEFAULT_ORDERS_LIST_DAYS_BACK);
+  return { fromDate: toDateOnlyUtc(from), toDate: toDateOnlyUtc(to) };
+}
+
+/** Relative GET URL for the orders list (no query for ReceiptNoPrice; query added only for SupportIntegrationList). */
+export function getOrdersListRequestPath(): string {
+  const base =
+    GET_ORDERS_LIST_PATH_OVERRIDE.length > 0 ? GET_ORDERS_LIST_PATH_OVERRIDE : DEFAULT_ORDERS_LIST_PATH;
+  if (base.includes("?")) return base;
+  const isSupportList = base === "/v2/SupportIntegrationList" || base.endsWith("/SupportIntegrationList");
+  if (isSupportList) {
+    const { fromDate, toDate } = getDefaultOrdersListDateRange();
+    const params = new URLSearchParams({
+      FromDate: fromDate,
+      ToDate: toDate,
+      Records: String(DEFAULT_ORDERS_LIST_RECORDS),
+    });
+    return `${base}?${params.toString()}`;
+  }
+  return base;
+}
 
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   return Promise.race([
@@ -107,11 +161,61 @@ function rawResponseToLog(value: unknown): string {
 
 export type PostToErpStatusCallback = (message: string) => void;
 
+export type PostToErpResult = {
+  ok: boolean;
+  statusCode?: string;
+  body?: unknown;
+  rawKeys?: string[];
+  errorDetail?: string;
+};
+
+type ProcurementInboundPostBody = ReceiptConfirmationPayload;
+
+function buildProcurementInboundPostBody(payload: ReceiptConfirmationPayload): ProcurementInboundPostBody {
+  return payload;
+}
+
+function extractWorkflowErrorMessage(data: Record<string, unknown>, bodyStr: string | undefined): string | undefined {
+  const stringCandidates: unknown[] = [
+    data.FgResponseBody,
+    data.responseMessage,
+    data.message,
+    data.Message,
+    data.error,
+    data.Error,
+    data.detail,
+    data.Description,
+    typeof data.body === "string" ? data.body : undefined,
+  ];
+  for (const v of stringCandidates) {
+    if (typeof v === "string") {
+      const t = v.trim();
+      if (t.length > 0 && t.toLowerCase() !== "success") return t;
+    }
+  }
+  if (bodyStr == null) return undefined;
+  const trimmed = bodyStr.trim();
+  if (trimmed.length === 0) return undefined;
+  const parsed = safeParseJson(trimmed);
+  if (parsed != null && typeof parsed === "object" && !Array.isArray(parsed)) {
+    const o = parsed as Record<string, unknown>;
+    for (const k of ["message", "Message", "error", "Error", "detail", "title"]) {
+      const x = o[k];
+      if (typeof x === "string" && x.trim().length > 0) return x.trim();
+    }
+  }
+  if (parsed === undefined) {
+    return trimmed;
+  }
+  return undefined;
+}
+
 export async function postToErp(
   payload: ReceiptConfirmationPayload,
   onStatus?: PostToErpStatusCallback
-): Promise<{ ok: boolean; statusCode?: string; body?: unknown; rawKeys?: string[] }> {
+): Promise<PostToErpResult> {
   const log = (msg: string) => onStatus?.(msg);
+  const requestBody = buildProcurementInboundPostBody(payload);
 
   if (isStandaloneMode()) {
     const apiUrl = STANDALONE_API_URL.replace(/\/$/, "");
@@ -124,7 +228,7 @@ export async function postToErp(
         fetch(postUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(requestBody),
         }),
         POST_TIMEOUT_MS,
         "Post to ERP timed out. Check your Azure backend and Flowgear."
@@ -150,7 +254,12 @@ export async function postToErp(
     const bodyStr = typeof bodyRaw === "string" ? bodyRaw : bodyRaw != null ? JSON.stringify(bodyRaw) : undefined;
     const ok = res.ok || code === "200" || data?.success === true || Object.keys(data).length === 0;
     log(ok ? `Status: ${code} (success)` : `Status: ${code} (non-OK)`);
-    return { ok, statusCode: code, body: bodyStr != null ? safeParseJson(bodyStr) : undefined, rawKeys: Object.keys(data) };
+    const parsedBody = bodyStr != null ? safeParseJson(bodyStr) : undefined;
+    const errorDetail = ok ? undefined : extractWorkflowErrorMessage(data, bodyStr);
+    if (!ok && errorDetail != null) {
+      log(`Workflow error: ${errorDetail.length <= 500 ? errorDetail : errorDetail.slice(0, 500) + "…"}`);
+    }
+    return { ok, statusCode: code, body: parsedBody, rawKeys: Object.keys(data), errorDetail };
   }
 
   log(`Sending POST to ${POST_PROCUREMENT_INBOUND_PATH} (auth via Console cookie)…`);
@@ -159,7 +268,7 @@ export async function postToErp(
   let response: unknown;
   try {
     response = await withTimeout(
-      Flowgear.Sdk.invoke("POST", POST_PROCUREMENT_INBOUND_PATH, payload),
+      Flowgear.Sdk.invoke("POST", POST_PROCUREMENT_INBOUND_PATH, requestBody),
       POST_TIMEOUT_MS,
       "Post to ERP timed out. The workflow may still be running; check Flowgear activity log."
     );
@@ -214,6 +323,7 @@ export async function postToErp(
       statusCode: undefined,
       body: undefined,
       rawKeys: [],
+      errorDetail: typeof response === "string" ? response.trim() || undefined : undefined,
     };
   }
 
@@ -259,11 +369,18 @@ export async function postToErp(
     log(`Body length: ${bodyStr.length} chars`);
   }
 
+  const parsedBody = bodyStr != null ? safeParseJson(bodyStr) : undefined;
+  const errorDetail = ok ? undefined : extractWorkflowErrorMessage(data, bodyStr);
+  if (!ok && errorDetail != null) {
+    log(`Workflow error: ${errorDetail.length <= 500 ? errorDetail : errorDetail.slice(0, 500) + "…"}`);
+  }
+
   return {
     ok,
     statusCode: code,
-    body: bodyStr != null ? safeParseJson(bodyStr) : undefined,
+    body: parsedBody,
     rawKeys: Object.keys(data),
+    errorDetail,
   };
 }
 
@@ -282,16 +399,19 @@ export async function getPendingReceipt(): Promise<ReceiptConfirmationPayload | 
   }
 }
 
-/** Path used for the list request (GET). Exported for display/logging. */
-export const ORDERS_LIST_PATH = GET_ORDERS_LIST_PATH;
+/** Base path for the default orders-list workflow (before query string). */
+export const ORDERS_LIST_PATH = DEFAULT_ORDERS_LIST_PATH;
 
-/** Returns list of orders (array of same JSON payload). Calls GET on GET_ORDERS_LIST_PATH (/v2/ReceiptNoPrice).
- * Supports: (1) Result/Table XML with base64 <Content> per table; (2) JSON array of payloads. */
+function payloadsToEntries(payloads: ReceiptConfirmationPayload[]): ReceiptOrderListEntry[] {
+  return payloads.map((p) => ({ payload: p, targetPayloadBase64: null, sourcePayloadBase64: null }));
+}
+
+/** Returns list of orders. Default GET is /v2/ReceiptNoPrice; set VITE_GET_ORDERS_LIST_PATH for SupportIntegrationList (then date/Records query is applied). */
 export async function getOrdersList(
   onStatus?: (message: string) => void
-): Promise<ReceiptConfirmationPayload[]> {
-  const path = GET_ORDERS_LIST_PATH;
-  if (path == null || path === "") {
+): Promise<ReceiptOrderListEntry[]> {
+  const path = getOrdersListRequestPath();
+  if (path === "") {
     if (import.meta.env.DEV && onStatus) onStatus("Orders list path not configured.");
     return [];
   }
@@ -418,6 +538,12 @@ export async function getOrdersList(
         log(`GET ${path} detected Result/Table JSON, parsing…`);
         const list = parseResultTableJson(rawBody);
         log(`GET ${path} → ${list.length} order(s) from JSON`);
+        return payloadsToEntries(list);
+      }
+      if (trimmed.startsWith("[")) {
+        log(`GET ${path} detected JSON row array, parsing…`);
+        const list = parseResultTableJsonRows(rawBody);
+        log(`GET ${path} → ${list.length} order(s) from JSON rows`);
         return list;
       }
       const looksLikeXml = /<Table/i.test(rawBody) && /<Content[\s>]/i.test(rawBody);
@@ -425,7 +551,7 @@ export async function getOrdersList(
         log(`GET ${path} detected Result/Table XML (base64 Content), parsing…`);
         const list = parseResultTableXml(rawBody);
         log(`GET ${path} → ${list.length} order(s) from XML`);
-        return list;
+        return payloadsToEntries(list);
       }
       log(`GET ${path} response is not Result/Table JSON or XML; trying JSON array…`);
     }
@@ -438,12 +564,14 @@ export async function getOrdersList(
       log(`GET ${path} → not a JSON array`);
       return [];
     }
-    const list = raw.filter(
-      (item): item is ReceiptConfirmationPayload =>
-        item != null &&
-        typeof item === "object" &&
-        (item as ReceiptConfirmationPayload).Receipt_Confirmation != null
-    );
+    const list = raw
+      .filter(
+        (item): item is ReceiptConfirmationPayload =>
+          item != null &&
+          typeof item === "object" &&
+          (item as ReceiptConfirmationPayload).Receipt_Confirmation != null
+      )
+      .map((p) => ({ payload: p, targetPayloadBase64: null, sourcePayloadBase64: null }));
     log(`GET ${path} → ${list.length} order(s)`);
     return list;
   } catch (e) {

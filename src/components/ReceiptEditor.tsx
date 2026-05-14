@@ -1,9 +1,14 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { Flowgear } from "flowgear-webapp";
 
-const { AlertMessageTypes, AlertDismissOptions } = Flowgear.Sdk;
+const { AlertMessageTypes, AlertDismissOptions, ConfirmResult } = Flowgear.Sdk;
 import type { ReceiptConfirmationPayload, ReceiptConfirmationItem } from "../models/receiptConfirmation";
-import { hasMissingOrderPrice, isZeroOutLine } from "../models/receiptConfirmation";
+import {
+  displayLineUom,
+  hasMissingOrderPrice,
+  hasInvalidOrderPrice,
+  isZeroOutLine,
+} from "../models/receiptConfirmation";
 import { postToErp, isStandaloneMode } from "../services/payloadService";
 import ReceiptLineEditor from "./ReceiptLineEditor";
 
@@ -12,22 +17,53 @@ const isDev = import.meta.env.DEV;
 
 interface ReceiptEditorProps {
   initialPayload: ReceiptConfirmationPayload | null;
+  targetPayloadBase64?: string | null;
+  sourcePayloadBase64?: string | null;
   onRefresh?: () => void;
   onPostSuccess?: () => void;
+  foreignSessionLockActive?: boolean;
+}
+
+interface ReceiptDisplayRow {
+  key: string;
+  lineLabel: string;
+  itemCode: string;
+  description: string;
+  inventoryDisplay: string;
+  holdCode?: string;
+  quantity: number;
+  netWeight: number;
+  uom: string;
+  rate: number | null;
+  isWeightBased: boolean;
+  sourceLineNos: string[];
 }
 
 export default function ReceiptEditor({
   initialPayload,
+  targetPayloadBase64 = null,
+  sourcePayloadBase64 = null,
   onRefresh,
   onPostSuccess,
+  foreignSessionLockActive = false,
 }: ReceiptEditorProps) {
-  const [payload, setPayload] = useState<ReceiptConfirmationPayload | null>(
-    initialPayload
-  );
+  const [payload, setPayload] = useState<ReceiptConfirmationPayload | null>(initialPayload);
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [postSuccessMessage, setPostSuccessMessage] = useState<string | null>(null);
   const [statusLog, setStatusLog] = useState<string[]>([]);
-  const [showPayloadView, setShowPayloadView] = useState(false);
+  const [showTargetPayloadView, setShowTargetPayloadView] = useState(false);
+  const [showSourcePayloadView, setShowSourcePayloadView] = useState(false);
+  const [showHoldCodeDetails, setShowHoldCodeDetails] = useState(false);
+
+  const decodedTargetPayload = useMemo(
+    () => decodePayloadBase64(targetPayloadBase64),
+    [targetPayloadBase64]
+  );
+  const decodedSourcePayload = useMemo(
+    () => decodePayloadBase64(sourcePayloadBase64),
+    [sourcePayloadBase64]
+  );
 
   const appendStatus = useCallback((message: string) => {
     setStatusLog((prev) => [...prev.slice(-(MAX_STATUS_LINES - 1)), message]);
@@ -46,15 +82,22 @@ export default function ReceiptEditor({
     }
   }, [appendStatus]);
 
+  useEffect(() => {
+    setShowTargetPayloadView(false);
+    setShowSourcePayloadView(false);
+    setShowHoldCodeDetails(false);
+  }, [initialPayload, targetPayloadBase64, sourcePayloadBase64]);
+
   const updateOrderPrice = useCallback(
-    (lineNo: string, value: number | null) => {
+    (lineNos: string[], value: number | null) => {
       if (payload == null) return;
+      const lineNoSet = new Set(lineNos);
       setPayload({
         ...payload,
         Receipt_Confirmation: {
           ...payload.Receipt_Confirmation,
           Items: payload.Receipt_Confirmation.Items.map((item) =>
-            item.Line_No === lineNo ? { ...item, Order_Price: value } : item
+            lineNoSet.has(item.Line_No) ? { ...item, Order_Price: value } : item
           ),
         },
       });
@@ -65,21 +108,54 @@ export default function ReceiptEditor({
 
   async function handlePost() {
     if (payload == null) return;
-    const itemsToValidate = payload.Receipt_Confirmation.Items ?? [];
-    const missing = itemsToValidate.filter(
-      (i) => !isZeroOutLine(i) && i.Order_Price == null
-    );
-    if (missing.length > 0) {
-      setError(
-        `Please set Rate (R/kg) for line(s): ${missing.map((i) => i.Line_No).join(", ")}.`
-      );
+    if (foreignSessionLockActive) {
       Flowgear.Sdk.setAlert(
-        `Rate (R/kg) is required for all lines. Missing: ${missing.map((i) => i.Line_No).join(", ")}.`,
+        "Another tab may be editing this receipt. Close the other session or wait before posting.",
         AlertMessageTypes.Warning,
         AlertDismissOptions.Tap
       );
       return;
     }
+    const itemsToValidate = payload.Receipt_Confirmation.Items ?? [];
+    const missing = itemsToValidate.filter((i) => !isZeroOutLine(i) && i.Order_Price == null);
+    if (missing.length > 0) {
+      setError(`Please set Rate (R/UOM) for line(s): ${missing.map((i) => i.Line_No).join(", ")}.`);
+      Flowgear.Sdk.setAlert(
+        `Rate (R/UOM) is required for all lines. Missing: ${missing.map((i) => i.Line_No).join(", ")}.`,
+        AlertMessageTypes.Warning,
+        AlertDismissOptions.Tap
+      );
+      return;
+    }
+    const invalid = itemsToValidate.filter((i) => !isZeroOutLine(i) && i.Order_Price != null && i.Order_Price <= 0);
+    if (invalid.length > 0) {
+      setError(`Rate (R/UOM) must be greater than 0 for line(s): ${invalid.map((i) => i.Line_No).join(", ")}.`);
+      Flowgear.Sdk.setAlert(
+        `Rate (R/UOM) must be positive. Invalid: ${invalid.map((i) => i.Line_No).join(", ")}.`,
+        AlertMessageTypes.Warning,
+        AlertDismissOptions.Tap
+      );
+      return;
+    }
+
+    let confirmed = false;
+    try {
+      const embedded = typeof window !== "undefined" && window.top !== window.self;
+      if (embedded) {
+        const r = await Flowgear.Sdk.confirmModal(
+          "Post to ERP?",
+          "Are you sure you want to post this receipt confirmation to ERP? The current rates and quantities will be sent to the ERP workflow.",
+          "Post"
+        );
+        confirmed = r === ConfirmResult.Yes;
+      } else {
+        confirmed = window.confirm("Are you sure you want to post this receipt confirmation to ERP?");
+      }
+    } catch {
+      confirmed = window.confirm("Are you sure you want to post this receipt confirmation to ERP?");
+    }
+    if (!confirmed) return;
+
     setPosting(true);
     setError(null);
     appendStatus("---");
@@ -91,14 +167,18 @@ export default function ReceiptEditor({
           AlertMessageTypes.Success,
           AlertDismissOptions.Auto
         );
-        onPostSuccess?.();
+        setPostSuccessMessage("Receipt posted to ERP successfully.");
         setPayload(null);
-        onRefresh?.();
       } else {
         const msg =
-          result.body != null && typeof result.body === "object" && "message" in result.body
-            ? String((result.body as { message: string }).message)
-            : result.statusCode ?? "Post failed";
+          result.errorDetail ??
+          (result.body != null && typeof result.body === "object" && "message" in result.body
+            ? String((result.body as { message: unknown }).message)
+            : typeof result.body === "string" && result.body.trim().length > 0
+              ? result.body.trim()
+              : result.statusCode != null
+                ? `Request failed (${result.statusCode}).`
+                : "Post failed");
         setError(msg);
         Flowgear.Sdk.setAlert(msg, AlertMessageTypes.Error, AlertDismissOptions.Tap);
       }
@@ -112,43 +192,91 @@ export default function ReceiptEditor({
     }
   }
 
-  if (payload == null) {
-    return (
-      <div className="app-contentarea">
-        <p className="text-muted">
-          No receipt confirmation to edit. Load a payload from your workflow or
-          use sample data when a GET endpoint is configured.
-        </p>
-        {onRefresh != null && (
-          <button
-            type="button"
-            className="receipt-btn receipt-btn-secondary"
-            onClick={onRefresh}
-          >
-            Refresh
-          </button>
-        )}
-      </div>
-    );
-  }
-
-  const rc = payload.Receipt_Confirmation;
-  const items = rc.Items ?? [];
   const visibleItems = useMemo(
-    () => items.filter((item) => !isZeroOutLine(item)),
-    [items]
+    () => (payload?.Receipt_Confirmation.Items ?? []).filter((item) => !isZeroOutLine(item)),
+    [payload]
   );
-  const needsPrice = hasMissingOrderPrice(payload);
+
+  const displayRows = useMemo<ReceiptDisplayRow[]>(() => {
+    if (showHoldCodeDetails) {
+      return visibleItems.map((item) => {
+        const invL3 = item.Inventory_Level3 ?? item.Line_Stock_Details?.[0]?.To_Inventory_L3 ?? "";
+        const holdCode =
+          (item.Hold_Code ?? "").trim() || (item.Line_Stock_Details?.[0]?.To_Hold_Code ?? "").trim();
+        return {
+          key: `line-${item.Line_No}`,
+          lineLabel: item.Line_No,
+          itemCode: item.Item_Code,
+          description: item.Item_Description ?? "",
+          inventoryDisplay: invL3,
+          holdCode,
+          quantity: item.Quantity,
+          netWeight: item.Net_Weight_Shipped,
+          uom: displayLineUom(item),
+          rate: item.Order_Price,
+          isWeightBased: displayLineUom(item).trim().toUpperCase() === "KG",
+          sourceLineNos: [item.Line_No],
+        };
+      });
+    }
+
+    const groups = new Map<string, ReceiptConfirmationItem[]>();
+    for (const item of visibleItems) {
+      const key = (item.Item_Code ?? "").trim().toUpperCase();
+      const existing = groups.get(key);
+      if (existing == null) groups.set(key, [item]);
+      else existing.push(item);
+    }
+
+    return Array.from(groups.values()).map((items) => {
+      const first = items[0];
+      const qty = items.reduce((sum, item) => sum + item.Quantity, 0);
+      const netWeight = items.reduce((sum, item) => sum + item.Net_Weight_Shipped, 0);
+      const lineNos = items.map((item) => item.Line_No);
+      const invValues = Array.from(
+        new Set(
+          items
+            .map((item) => item.Inventory_Level3 ?? item.Line_Stock_Details?.[0]?.To_Inventory_L3 ?? "")
+            .filter((v) => v.trim().length > 0)
+        )
+      );
+      const rates = Array.from(new Set(items.map((item) => item.Order_Price).filter((v) => v != null)));
+      const rate = rates.length === 1 ? rates[0] ?? null : null;
+      const uom = displayLineUom(first);
+      return {
+        key: `item-${first.Item_Code}`,
+        lineLabel: lineNos.length > 1 ? `${lineNos[0]}-${lineNos[lineNos.length - 1]}` : lineNos[0],
+        itemCode: first.Item_Code,
+        description: first.Item_Description ?? "",
+        inventoryDisplay: invValues.join(" | "),
+        quantity: qty,
+        netWeight,
+        uom,
+        rate,
+        isWeightBased: uom.trim().toUpperCase() === "KG",
+        sourceLineNos: lineNos,
+      };
+    });
+  }, [showHoldCodeDetails, visibleItems]);
+
+  const needsPrice = payload != null ? hasMissingOrderPrice(payload) : false;
+  const hasInvalidPrice = payload != null ? hasInvalidOrderPrice(payload) : false;
+  const rateReadOnly = foreignSessionLockActive;
+  const canPost = !needsPrice && !hasInvalidPrice && !foreignSessionLockActive;
 
   const { totalQty, totalWeight, totalOrderPrice } = useMemo(() => {
     let qty = 0;
     let weight = 0;
     let orderPrice = 0;
-    for (const item of visibleItems) {
-      qty += item.Quantity;
-      weight += item.Net_Weight_Shipped;
-      if (item.Order_Price != null && item.Net_Weight_Shipped > 0) {
-        orderPrice += item.Order_Price * item.Net_Weight_Shipped;
+    for (const row of displayRows) {
+      qty += row.quantity;
+      weight += row.netWeight;
+      if (row.rate != null) {
+        if (row.isWeightBased) {
+          orderPrice += row.rate * row.netWeight;
+        } else {
+          orderPrice += row.rate * row.quantity;
+        }
       }
     }
     return {
@@ -156,7 +284,46 @@ export default function ReceiptEditor({
       totalWeight: weight,
       totalOrderPrice: Math.round(orderPrice * 100) / 100,
     };
-  }, [visibleItems]);
+  }, [displayRows]);
+
+  if (payload == null) {
+    return (
+      <div className="app-contentarea">
+        {postSuccessMessage != null ? (
+          <>
+            <div className="alert alert-success" role="status">
+              {postSuccessMessage}
+            </div>
+            <button
+              type="button"
+              className="receipt-btn receipt-btn-primary receipt-btn-primary-ready"
+              onClick={() => {
+                onPostSuccess?.();
+                onRefresh?.();
+                setPostSuccessMessage(null);
+              }}
+            >
+              OK - Load next receipt
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="text-muted">
+              No receipt confirmation to edit. Load a payload from your workflow or use sample data when a GET endpoint
+              is configured.
+            </p>
+            {onRefresh != null && (
+              <button type="button" className="receipt-btn receipt-btn-secondary" onClick={onRefresh}>
+                Refresh
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
+
+  const rc = payload.Receipt_Confirmation;
 
   return (
     <div className="app-contentarea">
@@ -168,18 +335,41 @@ export default function ReceiptEditor({
           <div className="receipt-sheet-header-content">
             <h1 className="receipt-sheet-title">Receipt confirmation – Order price entry</h1>
             <div className="receipt-sheet-meta">
-              <span><strong>Receipt</strong> {rc.Inbound_Receipt_No}</span>
-              <span><strong>Supplier</strong> {rc.Supplier}</span>
-              <span><strong>Order type</strong> {rc.Order_Type}</span>
-              <span><strong>Probill</strong> {rc.Probill_Number}</span>
-              <span><strong>Reference</strong> {rc.Inbound_Reference_No}</span>
+              <span>
+                <strong>Company</strong> {rc.Company}
+              </span>
+              <span>
+                <strong>Receipt</strong> {rc.Inbound_Receipt_No}
+              </span>
+              <span>
+                <strong>Supplier</strong> {rc.Supplier}
+              </span>
+              <span>
+                <strong>Order type</strong> {rc.Order_Type}
+              </span>
+              <span>
+                <strong>Probill</strong> {rc.Probill_Number}
+              </span>
+              <span>
+                <strong>Reference</strong> {rc.Inbound_Reference_No}
+              </span>
             </div>
           </div>
         </header>
 
-        {needsPrice && (
-          <div className="alert alert-warning receipt-sheet-alert" role="alert">
-            Enter a rate (R/kg) for every line; order price is calculated from Net weight × Rate.
+        {foreignSessionLockActive && (
+          <div className="alert alert-warning receipt-sheet-alert" role="status">
+            Another browser tab may already be editing this receipt on this device. Rates and posting are blocked until
+            that session closes or the lock expires (about 2 minutes after the tab stops updating). For a lock across
+            different users or PCs, use a Flowgear workflow.
+          </div>
+        )}
+
+        {(needsPrice || hasInvalidPrice) && (
+          <div className="receipt-sheet-banner receipt-sheet-banner-price" role="status">
+            {hasInvalidPrice
+              ? "Rate (R/UOM) must be greater than 0 for every line."
+              : "Enter a rate (R/UOM) for every line; when UOM is KG, order price = Net weight × Rate; otherwise order price = Quantity × Rate."}
           </div>
         )}
 
@@ -190,6 +380,16 @@ export default function ReceiptEditor({
         )}
 
         <div className="receipt-table-wrap">
+          <div className="receipt-table-controls">
+            <label className="receipt-hold-toggle">
+              <input
+                type="checkbox"
+                checked={showHoldCodeDetails}
+                onChange={(e) => setShowHoldCodeDetails(e.target.checked)}
+              />
+              <span>Show Hold Code Details</span>
+            </label>
+          </div>
           <table className="table receipt-table">
             <thead>
               <tr>
@@ -197,26 +397,43 @@ export default function ReceiptEditor({
                 <th className="receipt-th receipt-th-item">Item code</th>
                 <th className="receipt-th receipt-th-desc">Description</th>
                 <th className="receipt-th receipt-th-inv">Pack Size / Lot</th>
+                {showHoldCodeDetails && <th className="receipt-th receipt-th-hold">Hold code</th>}
                 <th className="receipt-th receipt-th-num">Qty</th>
                 <th className="receipt-th receipt-th-num">Net weight (kg)</th>
-                <th className="receipt-th receipt-th-rate">Rate (R/kg)</th>
+                <th className="receipt-th receipt-th-uom">UOM</th>
+                <th className="receipt-th receipt-th-rate">Rate (R/UOM)</th>
                 <th className="receipt-th receipt-th-price">Order price</th>
               </tr>
             </thead>
             <tbody>
-              {visibleItems.map((item: ReceiptConfirmationItem) => (
+              {displayRows.map((row) => (
                 <ReceiptLineEditor
-                  key={item.Line_No}
-                  item={item}
-                  onOrderPriceChange={updateOrderPrice}
+                  key={row.key}
+                  rowKey={row.key}
+                  lineLabel={row.lineLabel}
+                  itemCode={row.itemCode}
+                  description={row.description}
+                  inventoryDisplay={row.inventoryDisplay}
+                  holdCode={showHoldCodeDetails ? row.holdCode : undefined}
+                  quantity={row.quantity}
+                  netWeight={row.netWeight}
+                  uom={row.uom}
+                  rate={row.rate}
+                  isWeightBased={row.isWeightBased}
+                  rateReadOnly={rateReadOnly}
+                  onOrderPriceChange={(value) => updateOrderPrice(row.sourceLineNos, value)}
                 />
               ))}
               <tr className="receipt-tr receipt-tr-total">
-                <td className="receipt-td receipt-td-line text-align-right" colSpan={4}>
+                <td
+                  className="receipt-td receipt-td-line text-align-right"
+                  colSpan={showHoldCodeDetails ? 5 : 4}
+                >
                   <strong>Total</strong>
                 </td>
                 <td className="receipt-td receipt-td-num text-align-right">{totalQty}</td>
                 <td className="receipt-td receipt-td-num text-align-right">{totalWeight.toFixed(2)}</td>
+                <td className="receipt-td receipt-td-uom text-align-right">—</td>
                 <td className="receipt-td receipt-td-rate text-align-right">—</td>
                 <td className="receipt-td receipt-td-price text-align-right receipt-td-calculated">
                   {totalOrderPrice.toFixed(2)}
@@ -235,9 +452,9 @@ export default function ReceiptEditor({
           <div className="receipt-sheet-actions">
             <button
               type="button"
-              className="receipt-btn receipt-btn-primary"
+              className={`receipt-btn receipt-btn-primary ${canPost ? "receipt-btn-primary-ready" : ""}`}
               onClick={handlePost}
-              disabled={posting || needsPrice}
+              disabled={posting || !canPost}
             >
               {posting ? "Posting…" : "Post to ERP"}
             </button>
@@ -247,12 +464,7 @@ export default function ReceiptEditor({
               </span>
             )}
             {onRefresh != null && (
-              <button
-                type="button"
-                className="receipt-btn receipt-btn-secondary"
-                onClick={onRefresh}
-                disabled={posting}
-              >
+              <button type="button" className="receipt-btn receipt-btn-secondary" onClick={onRefresh} disabled={posting}>
                 Refresh
               </button>
             )}
@@ -280,17 +492,26 @@ export default function ReceiptEditor({
                 <button
                   type="button"
                   className="receipt-btn receipt-btn-secondary"
-                  onClick={() => setShowPayloadView((v) => !v)}
+                  onClick={() => setShowTargetPayloadView((v) => !v)}
                 >
-                  {showPayloadView ? "Hide payload" : "View payload"}
+                  {showTargetPayloadView ? "Hide target payload" : "View target payload"}
                 </button>
-                {showPayloadView && (
+                {decodedSourcePayload != null && (
+                  <button
+                    type="button"
+                    className="receipt-btn receipt-btn-secondary ms-2"
+                    onClick={() => setShowSourcePayloadView((v) => !v)}
+                  >
+                    {showSourcePayloadView ? "Hide source payload" : "View source payload"}
+                  </button>
+                )}
+                {showTargetPayloadView && (
                   <button
                     type="button"
                     className="receipt-btn receipt-btn-secondary ms-2"
                     onClick={() => {
                       try {
-                        navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+                        navigator.clipboard.writeText(decodedTargetPayload ?? JSON.stringify(payload, null, 2));
                       } catch {
                         /* ignore */
                       }
@@ -300,9 +521,14 @@ export default function ReceiptEditor({
                   </button>
                 )}
               </div>
-              {showPayloadView && (
+              {showTargetPayloadView && (
                 <pre className="receipt-debug-payload-json" aria-label="Current record payload">
-                  {JSON.stringify(payload, null, 2)}
+                  {decodedTargetPayload ?? JSON.stringify(payload, null, 2)}
+                </pre>
+              )}
+              {showSourcePayloadView && decodedSourcePayload != null && (
+                <pre className="receipt-debug-payload-json mt-2" aria-label="Current record source payload">
+                  {decodedSourcePayload}
                 </pre>
               )}
             </div>
@@ -311,4 +537,19 @@ export default function ReceiptEditor({
       </div>
     </div>
   );
+}
+
+function decodePayloadBase64(base64Payload: string | null | undefined): string | null {
+  const trimmed = (base64Payload ?? "").trim();
+  if (trimmed.length === 0) return null;
+  try {
+    const decoded = atob(trimmed);
+    try {
+      return JSON.stringify(JSON.parse(decoded), null, 2);
+    } catch {
+      return decoded;
+    }
+  } catch {
+    return null;
+  }
 }
