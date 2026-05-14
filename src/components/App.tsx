@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import type { ReceiptOrderListEntry, ReceiptConfirmationPayload } from "../models/receiptConfirmation";
 import { normalizePayloadOrderPriceToRate } from "../models/receiptConfirmation";
 import { getOrdersList, AuthError, ConnectionError, isEmbeddedInConsole } from "../services/payloadService";
@@ -9,7 +9,13 @@ import {
   receiptLockStorageKey,
   RECEIPT_LOCK_HEARTBEAT_MS,
 } from "../utils/receiptSessionLock";
+import {
+  filterReceiptOrders,
+  ordersListEntryKey,
+  type OrderListFilters,
+} from "../utils/orderListFilters";
 import OrderListPanel from "./OrderListPanel";
+import OrderFiltersBar from "./OrderFiltersBar";
 import ReceiptEditor from "./ReceiptEditor";
 
 const isDev = import.meta.env.DEV;
@@ -24,6 +30,21 @@ function receiptLockKeyFromPayload(payload: ReceiptConfirmationPayload): string 
 
 function App() {
   const [orders, setOrders] = useState<ReceiptOrderListEntry[]>([]);
+  const [listFilters, setListFilters] = useState<OrderListFilters>({
+    company: "",
+    probill: "",
+    receiptNo: "",
+    dateFrom: "",
+    dateTo: "",
+  });
+  const filteredOrders = useMemo(() => filterReceiptOrders(orders, listFilters), [orders, listFilters]);
+  const hasActiveFilters =
+    listFilters.company.trim().length > 0 ||
+    listFilters.probill.trim().length > 0 ||
+    listFilters.receiptNo.trim().length > 0 ||
+    listFilters.dateFrom.trim().length > 0 ||
+    listFilters.dateTo.trim().length > 0;
+
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [listStatus, setListStatus] = useState<string>("");
@@ -42,7 +63,6 @@ function App() {
       );
       const normalized = list.map((entry) => normalizePayloadOrderPriceToRate(entry));
       setOrders(normalized);
-      setSelectedIndex(normalized.length > 0 ? 0 : null);
     } catch (e) {
       if (e instanceof AuthError) setAuthFailed(true);
       else if (e instanceof ConnectionError) setConnectionFailed(true);
@@ -55,7 +75,19 @@ function App() {
     }
   }, []);
 
-  const selectedOrder = selectedIndex != null && orders[selectedIndex] != null ? orders[selectedIndex] : null;
+  useEffect(() => {
+    if (filteredOrders.length === 0) {
+      setSelectedIndex(null);
+      return;
+    }
+    setSelectedIndex((i) => {
+      if (i == null || i < 0 || i >= filteredOrders.length) return 0;
+      return i;
+    });
+  }, [filteredOrders]);
+
+  const selectedOrder =
+    selectedIndex != null && filteredOrders[selectedIndex] != null ? filteredOrders[selectedIndex]! : null;
 
   const receiptLockKey =
     selectedOrder?.payload != null ? receiptLockKeyFromPayload(selectedOrder.payload) : undefined;
@@ -103,11 +135,10 @@ function App() {
   }, [receiptLockKey]);
 
   const handlePostSuccess = useCallback(() => {
-    if (selectedIndex == null || orders.length === 0) return;
-    const next = orders.filter((_, i) => i !== selectedIndex);
-    setOrders(next);
-    setSelectedIndex(next.length > 0 ? Math.min(selectedIndex, next.length - 1) : null);
-  }, [selectedIndex, orders]);
+    if (selectedOrder == null) return;
+    const k = ordersListEntryKey(selectedOrder);
+    setOrders((prev) => prev.filter((o) => ordersListEntryKey(o) !== k));
+  }, [selectedOrder]);
 
   const foreignSessionLockActive = Boolean(receiptLockKey) && !receiptLockHeld;
 
@@ -140,24 +171,40 @@ function App() {
       <div className="receipt-split-container">
         <aside className="receipt-split-left">
           <OrderListPanel
-            orders={orders}
+            orders={filteredOrders}
+            totalLoadedCount={orders.length}
             selectedIndex={selectedIndex}
             onSelectOrder={setSelectedIndex}
-            onRefresh={loadOrders}
+            onClearFilters={() =>
+              setListFilters({ company: "", probill: "", receiptNo: "", dateFrom: "", dateTo: "" })
+            }
             loading={loading}
             listStatus={listStatus}
           />
         </aside>
         <main className="receipt-split-right">
-          <ReceiptEditor
-            key={selectedIndex ?? "none"}
-            initialPayload={selectedOrder?.payload ?? null}
-            targetPayloadBase64={selectedOrder?.targetPayloadBase64 ?? null}
-            sourcePayloadBase64={selectedOrder?.sourcePayloadBase64 ?? null}
+          <OrderFiltersBar
+            filters={listFilters}
+            onFiltersChange={setListFilters}
             onRefresh={loadOrders}
-            onPostSuccess={handlePostSuccess}
-            foreignSessionLockActive={foreignSessionLockActive}
+            onClearFilters={() =>
+              setListFilters({ company: "", probill: "", receiptNo: "", dateFrom: "", dateTo: "" })
+            }
+            loading={loading}
+            hasActiveFilters={hasActiveFilters}
+            loadedCount={orders.length}
           />
+          <div className="receipt-split-right-body">
+            <ReceiptEditor
+              key={selectedOrder != null ? ordersListEntryKey(selectedOrder) : "none"}
+              initialPayload={selectedOrder?.payload ?? null}
+              targetPayloadBase64={selectedOrder?.targetPayloadBase64 ?? null}
+              sourcePayloadBase64={selectedOrder?.sourcePayloadBase64 ?? null}
+              onRefresh={loadOrders}
+              onPostSuccess={handlePostSuccess}
+              foreignSessionLockActive={foreignSessionLockActive}
+            />
+          </div>
         </main>
       </div>
     </>

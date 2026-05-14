@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { Flowgear } from "flowgear-webapp";
 
 const { AlertMessageTypes, AlertDismissOptions, ConfirmResult } = Flowgear.Sdk;
@@ -9,13 +9,16 @@ import {
   hasInvalidOrderPrice,
   isZeroOutLine,
   compareReceiptLineNoAsc,
-  averageGroupedLineRatesInPayload,
 } from "../models/receiptConfirmation";
 import { postToErp, isStandaloneMode } from "../services/payloadService";
 import ReceiptLineEditor from "./ReceiptLineEditor";
 
 const MAX_STATUS_LINES = 25;
 const isDev = import.meta.env.DEV;
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
 
 interface ReceiptEditorProps {
   initialPayload: ReceiptConfirmationPayload | null;
@@ -51,9 +54,6 @@ export default function ReceiptEditor({
   foreignSessionLockActive = false,
 }: ReceiptEditorProps) {
   const [payload, setPayload] = useState<ReceiptConfirmationPayload | null>(initialPayload);
-  const payloadRef = useRef<ReceiptConfirmationPayload | null>(initialPayload);
-  const prevLineDetailsRef = useRef(false);
-  const [averagedRateRowKeys, setAveragedRateRowKeys] = useState<Record<string, boolean>>({});
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [postSuccessMessage, setPostSuccessMessage] = useState<string | null>(null);
@@ -89,50 +89,15 @@ export default function ReceiptEditor({
   }, [appendStatus]);
 
   useEffect(() => {
-    payloadRef.current = payload;
-  }, [payload]);
-
-  useEffect(() => {
     setShowTargetPayloadView(false);
     setShowSourcePayloadView(false);
     setShowLineDetails(false);
-    setAveragedRateRowKeys({});
   }, [initialPayload, targetPayloadBase64, sourcePayloadBase64]);
-
-  useEffect(() => {
-    const prev = prevLineDetailsRef.current;
-    prevLineDetailsRef.current = showLineDetails;
-    if (showLineDetails) {
-      setAveragedRateRowKeys({});
-      return;
-    }
-    if (!prev) return;
-    const p = payloadRef.current;
-    if (p == null) return;
-    const { payload: next, averagedGroupKeys } = averageGroupedLineRatesInPayload(p);
-    setPayload(next);
-    setAveragedRateRowKeys(
-      averagedGroupKeys.length > 0 ? Object.fromEntries(averagedGroupKeys.map((k) => [k, true])) : {}
-    );
-  }, [showLineDetails]);
 
   const updateOrderPrice = useCallback((lineNos: string[], value: number | null) => {
     setPayload((prev) => {
       if (prev == null) return prev;
       const lineNoSet = new Set(lineNos);
-      const codes = new Set(
-        prev.Receipt_Confirmation.Items.filter((i) => lineNoSet.has(i.Line_No)).map((i) => i.Item_Code)
-      );
-      queueMicrotask(() => {
-        setAveragedRateRowKeys((ar) => {
-          if (codes.size === 0) return ar;
-          const next = { ...ar };
-          for (const c of codes) {
-            delete next[`item-${c}`];
-          }
-          return next;
-        });
-      });
       return {
         ...prev,
         Receipt_Confirmation: {
@@ -280,8 +245,22 @@ export default function ReceiptEditor({
             .filter((v) => v.trim().length > 0)
         )
       );
-      const rates = Array.from(new Set(items.map((item) => item.Order_Price).filter((v) => v != null)));
-      const rate = rates.length === 1 ? rates[0] ?? null : null;
+      const priced = items
+        .map((item) => item.Order_Price)
+        .filter((v): v is number => v != null);
+      let rate: number | null = null;
+      let rateIsAveraged = false;
+      if (priced.length === 0) {
+        rate = null;
+      } else {
+        const distinct = new Set(priced);
+        if (distinct.size === 1) {
+          rate = priced[0] ?? null;
+        } else {
+          rate = round2(priced.reduce((a, b) => a + b, 0) / priced.length);
+          rateIsAveraged = true;
+        }
+      }
       const uom = displayLineUom(first);
       return {
         key: `item-${first.Item_Code}`,
@@ -293,12 +272,12 @@ export default function ReceiptEditor({
         netWeight,
         uom,
         rate,
-        rateIsAveraged: Boolean(averagedRateRowKeys[`item-${first.Item_Code}`]),
+        rateIsAveraged,
         isWeightBased: uom.trim().toUpperCase() === "KG",
         sourceLineNos: lineNos,
       };
     });
-  }, [showLineDetails, visibleItems, averagedRateRowKeys]);
+  }, [showLineDetails, visibleItems]);
 
   const needsPrice = payload != null ? hasMissingOrderPrice(payload) : false;
   const hasInvalidPrice = payload != null ? hasInvalidOrderPrice(payload) : false;
@@ -309,23 +288,25 @@ export default function ReceiptEditor({
     let qty = 0;
     let weight = 0;
     let orderPrice = 0;
-    for (const row of displayRows) {
-      qty += row.quantity;
-      weight += row.netWeight;
-      if (row.rate != null) {
-        if (row.isWeightBased) {
-          orderPrice += row.rate * row.netWeight;
+    for (const item of visibleItems) {
+      qty += item.Quantity;
+      weight += item.Net_Weight_Shipped;
+      const r = item.Order_Price;
+      if (r != null) {
+        const byWeight = displayLineUom(item).trim().toUpperCase() === "KG";
+        if (byWeight) {
+          orderPrice += r * item.Net_Weight_Shipped;
         } else {
-          orderPrice += row.rate * row.quantity;
+          orderPrice += r * item.Quantity;
         }
       }
     }
     return {
       totalQty: qty,
       totalWeight: weight,
-      totalOrderPrice: Math.round(orderPrice * 100) / 100,
+      totalOrderPrice: round2(orderPrice),
     };
-  }, [displayRows]);
+  }, [visibleItems]);
 
   if (payload == null) {
     return (

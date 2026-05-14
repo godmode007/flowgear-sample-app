@@ -55,8 +55,8 @@ body {
 .receipt-split-left {
     width: 280px;
     min-width: 280px;
-    border-right: 1px solid #dee2e6;
-    background: #f1f3f5;
+    border-right: 2px solid $cch-blue-dark;
+    background: #fff;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -64,8 +64,16 @@ body {
 
 .receipt-split-right {
     flex: 1;
-    overflow: auto;
+    overflow: hidden;
     background: #fff;
+    display: flex;
+    flex-direction: column;
+}
+
+.receipt-split-right-body {
+    flex: 1;
+    overflow: auto;
+    padding: 12px 16px;
 }
 
 .receipt-orders-panel {
@@ -77,67 +85,132 @@ body {
 
 .receipt-orders-panel-header {
     padding: 12px;
-    border-bottom: 1px solid #dee2e6;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    background: #fff;
+    background: $cch-blue-dark;
 }
 
 .receipt-orders-panel-title {
     font-weight: 600;
-    color: $cch-blue-dark;
+    color: #fff;
 }
 
-.receipt-orders-refresh {
+.receipt-orders-panel-badge {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(0, 0, 0, 0.2);
+    padding: 3px 8px;
+    border-radius: 4px;
+}
+
+.receipt-main-filters {
     flex-shrink: 0;
+    background: $cch-blue;
+    color: #fff;
+    padding: 12px 16px;
+    border-bottom: 3px solid $cch-blue-dark;
+    box-shadow: 0 2px 8px rgba(0, 31, 107, 0.12);
 }
 
-.receipt-orders-filters {
-    padding: 8px 12px;
-    border-bottom: 1px solid #e9ecef;
+.receipt-main-filters-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    gap: 12px;
+}
+
+.receipt-main-filters-title {
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.96);
+}
+
+.receipt-main-filters-count {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.receipt-main-filters-inner {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px 10px;
-    background: #fafbfc;
+    gap: 10px 12px;
+    align-items: flex-end;
 }
 
-.receipt-orders-filter-field {
+.receipt-main-filter-field {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
     min-width: 0;
-    flex: 1 1 88px;
+    flex: 1 1 100px;
 }
 
-.receipt-orders-filter-field.receipt-orders-filter-field-date {
-    flex: 1 1 140px;
+.receipt-main-filter-field.receipt-main-filter-field-date {
+    flex: 1 1 148px;
 }
 
-.receipt-orders-filter-field label {
+.receipt-main-filter-field label {
     font-size: 11px;
     font-weight: 600;
-    color: #6c757d;
+    color: rgba(255, 255, 255, 0.88);
     text-transform: uppercase;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
 }
 
-.receipt-orders-filter-field input {
+.receipt-main-filter-field input {
     font-size: 13px;
-    padding: 4px 8px;
-    border: 1px solid #ced4da;
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
     border-radius: 4px;
     background: #fff;
+    color: #212529;
     width: 100%;
     min-width: 0;
 }
 
-.receipt-orders-filter-field input:focus {
+.receipt-main-filter-field input:focus {
     outline: none;
-    border-color: $cch-blue;
-    box-shadow: 0 0 0 2px rgba($cch-blue, 0.15);
+    border-color: $cch-blue-light;
+    box-shadow: 0 0 0 2px rgba(128, 206, 239, 0.5);
 }
+
+.receipt-main-filters-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-left: auto;
+}
+
+.receipt-btn-filter-refresh {
+    background: #fff !important;
+    color: $cch-blue-dark !important;
+    border: 1px solid #fff !important;
+    font-weight: 600;
+}
+
+.receipt-btn-filter-refresh:hover:not(:disabled) {
+    background: $cch-blue-light-bg !important;
+    color: $cch-blue-dark !important;
+}
+
+.receipt-btn-filter-clear {
+    background: transparent !important;
+    color: #fff !important;
+    border: 1px solid rgba(255, 255, 255, 0.55) !important;
+}
+
+.receipt-btn-filter-clear:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12) !important;
+}
+
 
 .receipt-orders-list-status {
     padding: 8px 12px;
