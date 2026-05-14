@@ -1,0 +1,10 @@
+---
+description: Push to origin after batches of work; prefer pushing without asking
+alwaysApply: true
+---
+
+# Git push
+
+- The user authorizes **`git push`** to **`origin`** on the current branch when work is committed. Do not wait for a separate “please push” unless they say otherwise.
+- After roughly **20 substantive changes** in a session (edits across files, logical chunks of work, or ~20 accumulated file touches), **push if there are unpushed commits** so the remote stays current.
+- Use **`git push origin <branch>`** (or `git push` if upstream is set). Report any push failure clearly.
