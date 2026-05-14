@@ -1,7 +1,15 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import type { ReceiptOrderListEntry, ReceiptConfirmationPayload } from "../models/receiptConfirmation";
-import { normalizePayloadOrderPriceToRate } from "../models/receiptConfirmation";
-import { getOrdersList, AuthError, ConnectionError, isEmbeddedInConsole } from "../services/payloadService";
+import { normalizePayloadOrderPriceToRate, getReceiptLockRecordId } from "../models/receiptConfirmation";
+import {
+  getOrdersList,
+  AuthError,
+  ConnectionError,
+  isEmbeddedInConsole,
+  setReceiptNoPriceLock,
+  getReceiptLockDashboardId,
+  getReceiptLockUsernameForRequest,
+} from "../services/payloadService";
 import {
   tryAcquireReceiptLock,
   releaseReceiptLock,
@@ -48,6 +56,7 @@ function App() {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [listStatus, setListStatus] = useState<string>("");
+  const [lockUserOverrideByRecordId, setLockUserOverrideByRecordId] = useState<Record<string, string>>({});
   const [authFailed, setAuthFailed] = useState(false);
   const [connectionFailed, setConnectionFailed] = useState(false);
   const embedded = isEmbeddedInConsole();
@@ -63,6 +72,7 @@ function App() {
       );
       const normalized = list.map((entry) => normalizePayloadOrderPriceToRate(entry));
       setOrders(normalized);
+      setLockUserOverrideByRecordId({});
     } catch (e) {
       if (e instanceof AuthError) setAuthFailed(true);
       else if (e instanceof ConnectionError) setConnectionFailed(true);
@@ -88,6 +98,53 @@ function App() {
 
   const selectedOrder =
     selectedIndex != null && filteredOrders[selectedIndex] != null ? filteredOrders[selectedIndex]! : null;
+
+  const lockPrevRecordIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const dashboardId = getReceiptLockDashboardId();
+    if (!dashboardId) return;
+
+    const newId = selectedOrder != null ? getReceiptLockRecordId(selectedOrder) : null;
+    const prevId = lockPrevRecordIdRef.current;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        if (prevId != null && prevId !== newId) {
+          await setReceiptNoPriceLock({ dashboardId, recordId: prevId, username: null });
+          if (cancelled) return;
+          setLockUserOverrideByRecordId((m) => {
+            const next = { ...m };
+            delete next[prevId];
+            return next;
+          });
+        }
+        if (newId != null) {
+          const u = getReceiptLockUsernameForRequest().trim();
+          await setReceiptNoPriceLock({
+            dashboardId,
+            recordId: newId,
+            username: u.length > 0 ? u : null,
+          });
+          if (cancelled) return;
+          if (u.length > 0) {
+            setLockUserOverrideByRecordId((m) => ({ ...m, [newId]: u }));
+          }
+        }
+      } catch {
+        /* server lock is best-effort */
+      } finally {
+        if (!cancelled) {
+          lockPrevRecordIdRef.current = newId;
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedOrder]);
 
   const receiptLockKey =
     selectedOrder?.payload != null ? receiptLockKeyFromPayload(selectedOrder.payload) : undefined;
@@ -180,6 +237,7 @@ function App() {
             }
             loading={loading}
             listStatus={listStatus}
+            lockUserOverrideByRecordId={lockUserOverrideByRecordId}
           />
         </aside>
         <main className="receipt-split-right">

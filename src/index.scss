@@ -53,8 +53,8 @@ body {
 }
 
 .receipt-split-left {
-    width: 280px;
-    min-width: 280px;
+    width: 300px;
+    min-width: 300px;
     border-right: 2px solid $cch-blue-dark;
     background: #fff;
     display: flex;
@@ -255,6 +255,42 @@ body {
     background: $cch-blue-light-bg;
     border-left: 3px solid $cch-blue;
     margin-left: 0;
+}
+
+.receipt-orders-list-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 12px 4px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: $cch-blue-dark;
+    background: #f1f3f5;
+    border-bottom: 1px solid #dee2e6;
+    flex-shrink: 0;
+}
+
+.receipt-orders-item-cols {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.receipt-orders-item-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.receipt-orders-item-user {
+    flex: 0 0 80px;
+    max-width: 80px;
+    font-size: 11px;
+    line-height: 1.25;
+    color: $cch-blue-dark;
+    text-align: right;
+    word-break: break-word;
 }
 
 .receipt-orders-item-label {

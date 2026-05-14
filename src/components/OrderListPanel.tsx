@@ -1,5 +1,5 @@
 import type { ReceiptOrderListEntry } from "../models/receiptConfirmation";
-import { ordersListEntryKey } from "../utils/orderListFilters";
+import { getReceiptLockRecordId } from "../models/receiptConfirmation";
 
 interface OrderListPanelProps {
   /** Already filtered list */
@@ -10,6 +10,8 @@ interface OrderListPanelProps {
   onClearFilters: () => void;
   loading?: boolean;
   listStatus?: string;
+  /** Optimistic lock holder from client lock API (merged with workflow `currentLockUser`). */
+  lockUserOverrideByRecordId: Record<string, string>;
 }
 
 function orderLabel(entry: ReceiptOrderListEntry): string {
@@ -31,6 +33,7 @@ export default function OrderListPanel({
   onClearFilters,
   loading = false,
   listStatus = "",
+  lockUserOverrideByRecordId,
 }: OrderListPanelProps) {
   return (
     <div className="receipt-orders-panel">
@@ -48,6 +51,12 @@ export default function OrderListPanel({
           ))}
         </div>
       ) : null}
+      {totalLoadedCount > 0 && orders.length > 0 ? (
+        <div className="receipt-orders-list-head" aria-hidden>
+          <span>Order</span>
+          <span>Current user</span>
+        </div>
+      ) : null}
       <ul className="receipt-orders-list" role="listbox" aria-label="Orders">
         {totalLoadedCount === 0 && !loading && (
           <li className="receipt-orders-empty">No orders. Use Refresh list in the main panel.</li>
@@ -60,18 +69,31 @@ export default function OrderListPanel({
             </button>
           </li>
         )}
-        {orders.map((order, index) => (
-          <li
-            key={ordersListEntryKey(order)}
-            className={`receipt-orders-item ${selectedIndex === index ? "receipt-orders-item-selected" : ""}`}
-            role="option"
-            aria-selected={selectedIndex === index}
-            onClick={() => onSelectOrder(index)}
-          >
-            <div className="receipt-orders-item-label">{orderLabel(order)}</div>
-            <div className="receipt-orders-item-sub">{orderSubtext(order)}</div>
-          </li>
-        ))}
+        {orders.map((order, index) => {
+          const rid = getReceiptLockRecordId(order);
+          const fromList = (order.currentLockUser ?? "").trim();
+          const fromOverride = (lockUserOverrideByRecordId[rid] ?? "").trim();
+          const displayUser = fromList || fromOverride || "—";
+          return (
+            <li
+              key={rid}
+              className={`receipt-orders-item ${selectedIndex === index ? "receipt-orders-item-selected" : ""}`}
+              role="option"
+              aria-selected={selectedIndex === index}
+              onClick={() => onSelectOrder(index)}
+            >
+              <div className="receipt-orders-item-cols">
+                <div className="receipt-orders-item-main">
+                  <div className="receipt-orders-item-label">{orderLabel(order)}</div>
+                  <div className="receipt-orders-item-sub">{orderSubtext(order)}</div>
+                </div>
+                <div className="receipt-orders-item-user" title={displayUser !== "—" ? displayUser : undefined}>
+                  {displayUser}
+                </div>
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

@@ -9,6 +9,7 @@ import {
   hasInvalidOrderPrice,
   isZeroOutLine,
   compareReceiptLineNoAsc,
+  getItemHoldCodeForGrouping,
 } from "../models/receiptConfirmation";
 import { postToErp, isStandaloneMode } from "../services/payloadService";
 import ReceiptLineEditor from "./ReceiptLineEditor";
@@ -60,7 +61,7 @@ export default function ReceiptEditor({
   const [statusLog, setStatusLog] = useState<string[]>([]);
   const [showTargetPayloadView, setShowTargetPayloadView] = useState(false);
   const [showSourcePayloadView, setShowSourcePayloadView] = useState(false);
-  const [showLineDetails, setShowLineDetails] = useState(false);
+  const [showHoldCodeDetails, setShowHoldCodeDetails] = useState(false);
 
   const decodedTargetPayload = useMemo(
     () => decodePayloadBase64(targetPayloadBase64),
@@ -91,7 +92,7 @@ export default function ReceiptEditor({
   useEffect(() => {
     setShowTargetPayloadView(false);
     setShowSourcePayloadView(false);
-    setShowLineDetails(false);
+    setShowHoldCodeDetails(false);
   }, [initialPayload, targetPayloadBase64, sourcePayloadBase64]);
 
   const updateOrderPrice = useCallback((lineNos: string[], value: number | null) => {
@@ -203,7 +204,7 @@ export default function ReceiptEditor({
   }, [payload]);
 
   const displayRows = useMemo<ReceiptDisplayRow[]>(() => {
-    if (showLineDetails) {
+    if (showHoldCodeDetails) {
       return visibleItems.map((item) => {
         const invL3 = item.Inventory_Level3 ?? item.Line_Stock_Details?.[0]?.To_Inventory_L3 ?? "";
         const holdCode =
@@ -227,9 +228,11 @@ export default function ReceiptEditor({
 
     const groups = new Map<string, ReceiptConfirmationItem[]>();
     for (const item of visibleItems) {
-      const key = (item.Item_Code ?? "").trim().toUpperCase();
-      const existing = groups.get(key);
-      if (existing == null) groups.set(key, [item]);
+      const itemKey = (item.Item_Code ?? "").trim().toUpperCase();
+      const holdKey = getItemHoldCodeForGrouping(item);
+      const gkey = `${itemKey}||${holdKey}`;
+      const existing = groups.get(gkey);
+      if (existing == null) groups.set(gkey, [item]);
       else existing.push(item);
     }
 
@@ -238,13 +241,13 @@ export default function ReceiptEditor({
       const qty = items.reduce((sum, item) => sum + item.Quantity, 0);
       const netWeight = items.reduce((sum, item) => sum + item.Net_Weight_Shipped, 0);
       const lineNos = items.map((item) => item.Line_No);
-      const invValues = Array.from(
-        new Set(
-          items
-            .map((item) => item.Inventory_Level3 ?? item.Line_Stock_Details?.[0]?.To_Inventory_L3 ?? "")
-            .filter((v) => v.trim().length > 0)
-        )
-      );
+      const inventoryDisplay = items
+        .map((item) => {
+          const lot = item.Inventory_Level3 ?? item.Line_Stock_Details?.[0]?.To_Inventory_L3 ?? "";
+          const lotDisp = lot.trim().length > 0 ? lot.trim() : "—";
+          return `${item.Line_No}: ${lotDisp}`;
+        })
+        .join(" · ");
       const priced = items
         .map((item) => item.Order_Price)
         .filter((v): v is number => v != null);
@@ -262,12 +265,13 @@ export default function ReceiptEditor({
         }
       }
       const uom = displayLineUom(first);
+      const holdSeg = getItemHoldCodeForGrouping(first) || "NOHOLD";
       return {
-        key: `item-${first.Item_Code}`,
+        key: `consolidated-${(first.Item_Code ?? "").trim()}-${holdSeg}`.replace(/\s+/g, "_"),
         lineLabel: lineNos.length > 1 ? lineNos.join(", ") : lineNos[0],
         itemCode: first.Item_Code,
         description: first.Item_Description ?? "",
-        inventoryDisplay: invValues.join(" | "),
+        inventoryDisplay,
         quantity: qty,
         netWeight,
         uom,
@@ -277,7 +281,7 @@ export default function ReceiptEditor({
         sourceLineNos: lineNos,
       };
     });
-  }, [showLineDetails, visibleItems]);
+  }, [showHoldCodeDetails, visibleItems]);
 
   const needsPrice = payload != null ? hasMissingOrderPrice(payload) : false;
   const hasInvalidPrice = payload != null ? hasInvalidOrderPrice(payload) : false;
@@ -406,10 +410,10 @@ export default function ReceiptEditor({
             <label className="receipt-hold-toggle">
               <input
                 type="checkbox"
-                checked={showLineDetails}
-                onChange={(e) => setShowLineDetails(e.target.checked)}
+                checked={showHoldCodeDetails}
+                onChange={(e) => setShowHoldCodeDetails(e.target.checked)}
               />
-              <span>Show Line Details</span>
+              <span>Show Hold Code details</span>
             </label>
           </div>
           <table className="table receipt-table">
@@ -419,7 +423,7 @@ export default function ReceiptEditor({
                 <th className="receipt-th receipt-th-item">Item code</th>
                 <th className="receipt-th receipt-th-desc">Description</th>
                 <th className="receipt-th receipt-th-inv">Pack Size / Lot</th>
-                {showLineDetails && <th className="receipt-th receipt-th-hold">Hold code</th>}
+                {showHoldCodeDetails && <th className="receipt-th receipt-th-hold">Hold code</th>}
                 <th className="receipt-th receipt-th-num">Qty</th>
                 <th className="receipt-th receipt-th-num">Net weight (kg)</th>
                 <th className="receipt-th receipt-th-uom">UOM</th>
@@ -436,7 +440,7 @@ export default function ReceiptEditor({
                   itemCode={row.itemCode}
                   description={row.description}
                   inventoryDisplay={row.inventoryDisplay}
-                  holdCode={showLineDetails ? row.holdCode : undefined}
+                  holdCode={showHoldCodeDetails ? row.holdCode : undefined}
                   quantity={row.quantity}
                   netWeight={row.netWeight}
                   uom={row.uom}
@@ -450,7 +454,7 @@ export default function ReceiptEditor({
               <tr className="receipt-tr receipt-tr-total">
                 <td
                   className="receipt-td receipt-td-line text-align-right"
-                  colSpan={showLineDetails ? 5 : 4}
+                  colSpan={showHoldCodeDetails ? 5 : 4}
                 >
                   <strong>Total</strong>
                 </td>
@@ -464,7 +468,7 @@ export default function ReceiptEditor({
               </tr>
             </tbody>
           </table>
-          {!showLineDetails && displayRows.some((r) => r.rateIsAveraged) ? (
+          {!showHoldCodeDetails && displayRows.some((r) => r.rateIsAveraged) ? (
             <p className="receipt-rate-average-footnote">For all * — Average of line prices captured</p>
           ) : null}
         </div>

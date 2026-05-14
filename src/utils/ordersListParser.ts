@@ -22,12 +22,24 @@ function isReceiptPayload(value: unknown): value is ReceiptConfirmationPayload {
   );
 }
 
+/** Optional metadata siblings under <Table> (besides Content). */
+function tableMetaText(table: Element, ...localNames: string[]): string | null {
+  const want = new Set(localNames.map((n) => n.toLowerCase()));
+  for (const child of Array.from(table.children)) {
+    const tag = (child.localName ?? "").toLowerCase();
+    if (want.has(tag)) {
+      const t = child.textContent?.trim();
+      if (t && t.length > 0) return t;
+    }
+  }
+  return null;
+}
+
 /**
  * Parses XML string: <Result><Table>...</Table><Table>...</Table></Result>
  * Each Table has <Content> with base64-encoded JSON payload.
- * Returns array of ReceiptConfirmationPayload (one per Table).
  */
-export function parseResultTableXml(xmlString: string): ReceiptConfirmationPayload[] {
+export function parseResultTableXml(xmlString: string): ReceiptOrderListEntry[] {
   const trimmed = xmlString.trim();
   if (
     !trimmed.includes("<Table") ||
@@ -39,7 +51,7 @@ export function parseResultTableXml(xmlString: string): ReceiptConfirmationPaylo
     const parser = new DOMParser();
     const doc = parser.parseFromString(trimmed, "text/xml");
     const tables = doc.querySelectorAll("Table");
-    const out: ReceiptConfirmationPayload[] = [];
+    const out: ReceiptOrderListEntry[] = [];
     for (let i = 0; i < tables.length; i++) {
       const table = tables[i];
       const contentEl = table.querySelector("Content");
@@ -48,7 +60,22 @@ export function parseResultTableXml(xmlString: string): ReceiptConfirmationPaylo
       try {
         const jsonStr = atob(raw);
         const parsed = safeParseJson(jsonStr);
-        if (isReceiptPayload(parsed)) out.push(parsed);
+        if (!isReceiptPayload(parsed)) continue;
+        const recordId = tableMetaText(table, "RecordId", "Id", "DashboardRecordId");
+        const currentLockUser = tableMetaText(
+          table,
+          "CurrentUser",
+          "LockUser",
+          "LockedBy",
+          "LockHolderUser"
+        );
+        out.push({
+          payload: parsed,
+          targetPayloadBase64: null,
+          sourcePayloadBase64: null,
+          recordId: recordId ?? undefined,
+          currentLockUser: currentLockUser ?? undefined,
+        });
       } catch {
         // skip invalid base64 or JSON
       }
@@ -72,26 +99,58 @@ export function isResultTableXml(value: string): boolean {
   );
 }
 
+function tableRowMeta(row: Record<string, unknown>): {
+  recordId: string | undefined;
+  currentLockUser: string | undefined;
+} {
+  const pick = (...keys: string[]): string | undefined => {
+    for (const k of keys) {
+      const v = row[k];
+      if (typeof v === "string" && v.trim().length > 0) return v.trim();
+    }
+    return undefined;
+  };
+  return {
+    recordId: pick("RecordId", "recordId", "Id", "id", "DashboardRecordId"),
+    currentLockUser: pick(
+      "CurrentUser",
+      "currentUser",
+      "LockUser",
+      "lockUser",
+      "LockedBy",
+      "lockedBy"
+    ),
+  };
+}
+
 /**
  * Parses JSON format: { Result: { Table: [ { Content: "base64...", ... }, ... ] } }
- * or { Result: { Table: { Content: "base64...", ... } } } (single row as object).
- * Each Table row's Content is base64-encoded ReceiptConfirmationPayload.
- * Returns array of payloads (one per Table row).
+ * or single Table object.
  */
-export function parseResultTableJson(jsonString: string): ReceiptConfirmationPayload[] {
+export function parseResultTableJson(jsonString: string): ReceiptOrderListEntry[] {
   const trimmed = jsonString.trim();
   if (!trimmed.startsWith("{")) return [];
-  const parsed = safeParseJson(trimmed) as { Result?: { Table?: Array<{ Content?: string }> | { Content?: string } } } | undefined;
+  const parsed = safeParseJson(trimmed) as
+    | { Result?: { Table?: Array<Record<string, unknown>> | Record<string, unknown> } }
+    | undefined;
   const table = parsed?.Result?.Table;
   const rows = Array.isArray(table) ? table : table != null && typeof table === "object" ? [table] : [];
-  const out: ReceiptConfirmationPayload[] = [];
+  const out: ReceiptOrderListEntry[] = [];
   for (const row of rows) {
-    const content = row?.Content?.trim();
+    const content = typeof row?.Content === "string" ? row.Content.trim() : "";
     if (!content) continue;
     try {
       const jsonStr = atob(content);
       const payload = safeParseJson(jsonStr);
-      if (isReceiptPayload(payload)) out.push(payload);
+      if (!isReceiptPayload(payload)) continue;
+      const meta = tableRowMeta(row);
+      out.push({
+        payload,
+        targetPayloadBase64: null,
+        sourcePayloadBase64: null,
+        recordId: meta.recordId,
+        currentLockUser: meta.currentLockUser,
+      });
     } catch {
       /* skip invalid base64 or JSON */
     }

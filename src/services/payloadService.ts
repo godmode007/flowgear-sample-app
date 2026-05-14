@@ -48,6 +48,9 @@ const STANDALONE_API_URL =
   (typeof import.meta !== "undefined" && (import.meta as { env?: Record<string, string> }).env?.VITE_STANDALONE_API_URL) ||
   "";
 
+/** Relative GET URL for per-receipt lock (DashboardId, RecordId, Username). */
+const RECEIPT_LOCK_PATH = "/v2/ReceiptNoPriceLock";
+
 /** Relative path for posting receipt confirmation to Procurement & Inbound (ERP). */
 const POST_PROCUREMENT_INBOUND_PATH = "/v2/ProcurementInbound";
 
@@ -402,11 +405,56 @@ export async function getPendingReceipt(): Promise<ReceiptConfirmationPayload | 
 /** Base path for the default orders-list workflow (before query string). */
 export const ORDERS_LIST_PATH = DEFAULT_ORDERS_LIST_PATH;
 
-function payloadsToEntries(payloads: ReceiptConfirmationPayload[]): ReceiptOrderListEntry[] {
-  return payloads.map((p) => ({ payload: p, targetPayloadBase64: null, sourcePayloadBase64: null }));
+export function getReceiptLockDashboardId(): string {
+  const v =
+    typeof import.meta !== "undefined"
+      ? ((import.meta as ImportMeta).env as Record<string, string | undefined>).VITE_RECEIPT_LOCK_DASHBOARD_ID
+      : undefined;
+  return (v ?? "").trim();
 }
 
-/** Returns list of orders. Default GET is /v2/ReceiptNoPrice; set VITE_GET_ORDERS_LIST_PATH for SupportIntegrationList (then date/Records query is applied). */
+/** Console user for lock API; override with VITE_RECEIPT_LOCK_USERNAME when SDK user is unavailable. */
+export function getReceiptLockUsernameForRequest(): string {
+  const viteEnv =
+    typeof import.meta !== "undefined" ? ((import.meta as ImportMeta).env as Record<string, string | undefined>) : {};
+  const fromEnv = (viteEnv.VITE_RECEIPT_LOCK_USERNAME ?? "").trim();
+  if (fromEnv.length > 0) return fromEnv;
+  try {
+    const Sdk = Flowgear.Sdk as unknown as {
+      getUser?: () => { name?: string; userName?: string; userNameDisplay?: string; email?: string };
+    };
+    const u = Sdk.getUser?.();
+    const cand = [u?.userName, u?.userNameDisplay, u?.name, u?.email].find(
+      (x) => typeof x === "string" && x.trim().length > 0
+    );
+    if (cand) return cand.trim();
+  } catch {
+    /* not embedded */
+  }
+  return "";
+}
+
+/**
+ * Declares server-side lock for a receipt row. Pass username null (sent as query null) to release/unlock.
+ */
+export async function setReceiptNoPriceLock(params: {
+  dashboardId: string;
+  recordId: string;
+  username: string | null;
+}): Promise<void> {
+  const { dashboardId, recordId, username } = params;
+  if (dashboardId.trim().length === 0 || recordId.trim().length === 0) return;
+  const qs = new URLSearchParams();
+  qs.set("DashboardId", dashboardId.trim());
+  qs.set("RecordId", recordId.trim());
+  if (username != null && username.trim().length > 0) {
+    qs.set("Username", username.trim());
+  } else {
+    qs.set("Username", "null");
+  }
+  await Flowgear.Sdk.invoke("GET", `${RECEIPT_LOCK_PATH}?${qs.toString()}`);
+}
+
 export async function getOrdersList(
   onStatus?: (message: string) => void
 ): Promise<ReceiptOrderListEntry[]> {
@@ -538,7 +586,7 @@ export async function getOrdersList(
         log(`GET ${path} detected Result/Table JSON, parsing…`);
         const list = parseResultTableJson(rawBody);
         log(`GET ${path} → ${list.length} order(s) from JSON`);
-        return payloadsToEntries(list);
+        return list;
       }
       if (trimmed.startsWith("[")) {
         log(`GET ${path} detected JSON row array, parsing…`);
@@ -551,7 +599,7 @@ export async function getOrdersList(
         log(`GET ${path} detected Result/Table XML (base64 Content), parsing…`);
         const list = parseResultTableXml(rawBody);
         log(`GET ${path} → ${list.length} order(s) from XML`);
-        return payloadsToEntries(list);
+        return list;
       }
       log(`GET ${path} response is not Result/Table JSON or XML; trying JSON array…`);
     }

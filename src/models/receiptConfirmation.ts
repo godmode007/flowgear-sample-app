@@ -111,6 +111,23 @@ export interface ReceiptOrderListEntry {
   payload: ReceiptConfirmationPayload;
   targetPayloadBase64: string | null;
   sourcePayloadBase64: string | null;
+  /** Optional row id from workflow (Table metadata); falls back to composite receipt key for locking. */
+  recordId?: string | null;
+  /** Optional display name of user holding server-side lock (from list workflow). */
+  currentLockUser?: string | null;
+}
+
+export function getItemHoldCodeForGrouping(item: ReceiptConfirmationItem): string {
+  const h = (item.Hold_Code ?? "").trim() || (item.Line_Stock_Details?.[0]?.To_Hold_Code ?? "").trim();
+  return h.toUpperCase();
+}
+
+/** Stable id for ReceiptNoPriceLock: workflow RecordId if present, else Company|Receipt|Reference. */
+export function getReceiptLockRecordId(entry: ReceiptOrderListEntry): string {
+  const rid = entry.recordId != null ? String(entry.recordId).trim() : "";
+  if (rid.length > 0) return rid;
+  const rc = entry.payload.Receipt_Confirmation;
+  return [rc.Company, rc.Inbound_Receipt_No, rc.Inbound_Reference_No].map((x) => (x ?? "").trim()).join("|");
 }
 
 /** Item code that is never shown in the UI (hidden from table and totals). */
