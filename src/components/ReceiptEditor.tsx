@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { Flowgear } from "flowgear-webapp";
 
-const { AlertMessageTypes, AlertDismissOptions, ConfirmResult } = Flowgear.Sdk;
+const { AlertMessageTypes, AlertDismissOptions, GetTextResult } = Flowgear.Sdk;
 import type { ReceiptConfirmationPayload } from "../models/receiptConfirmation";
 import {
   displayLineUom,
@@ -47,6 +47,8 @@ interface ReceiptEditorProps {
   lockApiDebugLog?: string[];
   /** Workflow / list lock holder for the open receipt (same as Orders "Current user" column). Not the Console sign-in identity. */
   receiptListLockUserDisplay?: string;
+  /** Persist in-progress rates when the user selects another order and returns. */
+  onPayloadChange?: (payload: ReceiptConfirmationPayload) => void;
 }
 
 interface ReceiptDisplayRow {
@@ -81,6 +83,7 @@ export default function ReceiptEditor({
   onEndEditSession,
   editSessionBusy = false,
   receiptListLockUserDisplay = "",
+  onPayloadChange,
 }: ReceiptEditorProps) {
   const [payload, setPayload] = useState<ReceiptConfirmationPayload | null>(initialPayload);
   const [posting, setPosting] = useState(false);
@@ -152,6 +155,10 @@ export default function ReceiptEditor({
   }, [appendStatus]);
 
   useEffect(() => {
+    setPayload(initialPayload);
+  }, [initialPayload]);
+
+  useEffect(() => {
     setShowTargetPayloadView(false);
     setShowSourcePayloadView(false);
     setShowHoldCodeDetails(false);
@@ -162,7 +169,7 @@ export default function ReceiptEditor({
       setPayload((prev) => {
         if (prev == null) return prev;
         const lineNoSet = new Set(lineNos.map((n) => String(n)));
-        return {
+        const next: ReceiptConfirmationPayload = {
           ...prev,
           Receipt_Confirmation: {
             ...prev.Receipt_Confirmation,
@@ -171,11 +178,13 @@ export default function ReceiptEditor({
             ),
           },
         };
+        onPayloadChange?.(next);
+        return next;
       });
       setError(null);
       onRateValueCommitted?.();
     },
-    [onRateValueCommitted]
+    [onPayloadChange, onRateValueCommitted]
   );
 
   async function handlePost() {
@@ -211,20 +220,30 @@ export default function ReceiptEditor({
     }
 
     const confirmDetail =
-      "Post this receipt confirmation to ERP with the current rates and quantities?";
-    let confirmed = false;
+      "Post this receipt confirmation to ERP with the current rates and quantities?\n\nType Y to confirm.";
+    let postConfirmText: string | null = null;
     try {
       const embedded = typeof window !== "undefined" && window.top !== window.self;
       if (embedded) {
-        const r = await Flowgear.Sdk.confirmModal("Post to ERP", confirmDetail, "Post");
-        confirmed = r === ConfirmResult.Yes;
+        const r = await Flowgear.Sdk.getTextModal("Post to ERP", confirmDetail, "");
+        if (r.result === GetTextResult.Cancel) return;
+        postConfirmText = r.text ?? "";
       } else {
-        confirmed = window.confirm(confirmDetail);
+        postConfirmText = window.prompt(confirmDetail);
+        if (postConfirmText == null) return;
       }
     } catch {
-      confirmed = window.confirm(confirmDetail);
+      postConfirmText = window.prompt(confirmDetail);
+      if (postConfirmText == null) return;
     }
-    if (!confirmed) return;
+    if (postConfirmText.trim().toUpperCase() !== "Y") {
+      Flowgear.Sdk.setAlert(
+        "Posting cancelled. Type Y (any case) in the confirmation box to post to ERP.",
+        AlertMessageTypes.Warning,
+        AlertDismissOptions.Tap
+      );
+      return;
+    }
 
     const okLock = (await ensureLockBeforePost?.()) ?? true;
     if (!okLock) {

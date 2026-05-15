@@ -295,6 +295,18 @@ function App() {
     setOrders((prev) => prev.filter((o) => ordersListEntryKey(o) !== k));
   }, [selectedOrder]);
 
+  const selectedOrderKey = selectedOrder != null ? ordersListEntryKey(selectedOrder) : null;
+
+  const handleOrderPayloadChange = useCallback(
+    (payload: ReceiptConfirmationPayload) => {
+      if (selectedOrderKey == null) return;
+      setOrders((prev) =>
+        prev.map((o) => (ordersListEntryKey(o) === selectedOrderKey ? { ...o, payload } : o))
+      );
+    },
+    [selectedOrderKey]
+  );
+
   const serverLockedByOther = useMemo(() => {
     const recordId =
       selectedOrder?.recordId != null && String(selectedOrder.recordId).trim().length > 0
@@ -500,6 +512,7 @@ function App() {
               onEndEditSession={endEditSession}
               editSessionBusy={editSessionBusy}
               receiptListLockUserDisplay={selectedReceiptListLockUser}
+              onPayloadChange={handleOrderPayloadChange}
             />
           </div>
         </main>
