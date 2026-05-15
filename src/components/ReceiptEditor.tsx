@@ -355,7 +355,13 @@ export default function ReceiptEditor({
 
   const needsPrice = payload != null ? hasMissingOrderPrice(payload) : false;
   const hasInvalidPrice = payload != null ? hasInvalidOrderPrice(payload) : false;
-  const rateReadOnly = foreignSessionLockActive;
+  const ratesBlockedForHoldView = showHoldCodeDetails;
+  const rateReadOnly = foreignSessionLockActive || ratesBlockedForHoldView;
+  const rateReadOnlyTitle = foreignSessionLockActive
+    ? "Another tab may be editing this receipt. Close it or wait for the lock to clear."
+    : ratesBlockedForHoldView
+      ? "Rates are entered by stock item and lot. Turn off Show Hold Code details to edit prices (hold code does not drive price)."
+      : undefined;
   const canPost = !needsPrice && !hasInvalidPrice && !foreignSessionLockActive;
 
   const postButtonTitle = useMemo(() => {
@@ -493,7 +499,7 @@ export default function ReceiptEditor({
               className={`receipt-hold-toggle${hasHoldCodeExtraInfo ? "" : " receipt-hold-toggle--disabled"}`}
               title={
                 hasHoldCodeExtraInfo
-                  ? undefined
+                  ? "Split rows by hold code for review. Rates are read-only here; enter prices with this off."
                   : "No stock item + lot groups with multiple hold codes — nothing extra to expand."
               }
             >
@@ -505,6 +511,12 @@ export default function ReceiptEditor({
               />
               <span>Show Hold Code details</span>
             </label>
+            {showHoldCodeDetails ? (
+              <p className="receipt-hold-view-hint" role="status">
+                Hold code view is for review only. Turn off Show Hold Code details to capture rates by stock item
+                and lot.
+              </p>
+            ) : null}
           </div>
           <table className="table receipt-table">
             <thead>
@@ -538,7 +550,8 @@ export default function ReceiptEditor({
                   rateIsAveraged={row.rateIsAveraged ?? false}
                   isWeightBased={row.isWeightBased}
                   rateReadOnly={rateReadOnly}
-                  onRateFocus={onRateFieldFocus}
+                  rateReadOnlyTitle={rateReadOnlyTitle}
+                  onRateFocus={ratesBlockedForHoldView ? undefined : onRateFieldFocus}
                   onOrderPriceChange={(value) => updateOrderPrice(row.sourceLineNos, value)}
                 />
               ))}

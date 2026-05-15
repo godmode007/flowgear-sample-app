@@ -12,6 +12,8 @@ interface ReceiptLineEditorProps {
   holdCode?: string;
   rate: number | null;
   rateReadOnly?: boolean;
+  /** Shown when rateReadOnly (e.g. session lock or hold-code detail view). */
+  rateReadOnlyTitle?: string;
   rateIsAveraged?: boolean;
   isWeightBased: boolean;
   onOrderPriceChange: (value: number | null) => void;
@@ -48,6 +50,7 @@ export default function ReceiptLineEditor({
   holdCode,
   rate,
   rateReadOnly = false,
+  rateReadOnlyTitle = "Another tab may be editing this receipt. Close it or wait for the lock to clear.",
   rateIsAveraged = false,
   isWeightBased,
   onOrderPriceChange,
@@ -113,10 +116,7 @@ export default function ReceiptLineEditor({
       <td className="receipt-td receipt-td-uom text-align-left">{uom}</td>
       <td className="receipt-td receipt-td-rate text-align-right">
         {rateReadOnly ? (
-          <span
-            className="receipt-rate-readonly"
-            title="Another tab may be editing this receipt. Close it or wait for the lock to clear."
-          >
+          <span className="receipt-rate-readonly" title={rateReadOnlyTitle}>
             {rate != null ? formatRateFromNumber(rate) : "—"}
             {rateIsAveraged ? <span className="receipt-rate-asterisk"> *</span> : null}
           </span>
