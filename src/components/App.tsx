@@ -4,6 +4,7 @@ import {
   normalizePayloadOrderPriceToRate,
   lockUsersMatch,
   compareReceiptOrdersByDetailDate,
+  getReceiptLockRecordId,
 } from "../models/receiptConfirmation";
 import {
   getOrdersList,
@@ -185,6 +186,15 @@ function App() {
     selectedOrder?.recordId != null && String(selectedOrder.recordId).trim().length > 0
       ? String(selectedOrder.recordId).trim()
       : null;
+
+  /** Matches OrderListPanel "Current user": workflow LockedBy plus client lock override for this row. */
+  const selectedReceiptListLockUser = useMemo(() => {
+    if (selectedOrder == null) return "—";
+    const rid = getReceiptLockRecordId(selectedOrder);
+    const fromList = (selectedOrder.currentLockUser ?? "").trim();
+    const fromOverride = (lockUserOverrideByRecordId[rid] ?? "").trim();
+    return fromList || fromOverride || "—";
+  }, [selectedOrder, lockUserOverrideByRecordId]);
 
   /** Unlock previous row when selection changes while an edit session was active. */
   useEffect(() => {
@@ -489,7 +499,7 @@ function App() {
               ensureLockBeforePost={ensureLockBeforePost}
               onEndEditSession={endEditSession}
               editSessionBusy={editSessionBusy}
-              currentUserLockLabel={orderFilterContext.currentUserLockLabel}
+              receiptListLockUserDisplay={selectedReceiptListLockUser}
             />
           </div>
         </main>

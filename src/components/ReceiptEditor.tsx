@@ -43,8 +43,8 @@ interface ReceiptEditorProps {
   onEndEditSession?: () => void | Promise<void>;
   editSessionBusy?: boolean;
   lockApiDebugLog?: string[];
-  /** Signed-in Console user label (lock API identity); empty until context resolves. */
-  currentUserLockLabel?: string;
+  /** Workflow / list lock holder for the open receipt (same as Orders "Current user" column). Not the Console sign-in identity. */
+  receiptListLockUserDisplay?: string;
 }
 
 interface ReceiptDisplayRow {
@@ -78,7 +78,7 @@ export default function ReceiptEditor({
   ensureLockBeforePost,
   onEndEditSession,
   editSessionBusy = false,
-  currentUserLockLabel = "",
+  receiptListLockUserDisplay = "",
 }: ReceiptEditorProps) {
   const [payload, setPayload] = useState<ReceiptConfirmationPayload | null>(initialPayload);
   const [posting, setPosting] = useState(false);
@@ -438,7 +438,7 @@ export default function ReceiptEditor({
   }
 
   const rc = payload.Receipt_Confirmation;
-  const currentUserDisplay = currentUserLockLabel.trim().length > 0 ? currentUserLockLabel.trim() : "—";
+  const currentUserDisplay = receiptListLockUserDisplay.trim().length > 0 ? receiptListLockUserDisplay.trim() : "—";
 
   return (
     <div className="app-contentarea">
