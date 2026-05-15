@@ -2,15 +2,17 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { Flowgear } from "flowgear-webapp";
 
 const { AlertMessageTypes, AlertDismissOptions, ConfirmResult } = Flowgear.Sdk;
-import type { ReceiptConfirmationPayload, ReceiptConfirmationItem } from "../models/receiptConfirmation";
+import type { ReceiptConfirmationPayload } from "../models/receiptConfirmation";
 import {
   displayLineUom,
   hasMissingOrderPrice,
   hasInvalidOrderPrice,
   isZeroOutLine,
   compareReceiptLineNoAsc,
-  getItemHoldCodeForGrouping,
-  getItemPackKeyForGrouping,
+  getItemHoldCodeDisplay,
+  getItemPackLotDisplay,
+  groupReceiptItemsForDisplay,
+  hasDistinctHoldCodesPerItemLot,
 } from "../models/receiptConfirmation";
 import { postToErp, isStandaloneMode } from "../services/payloadService";
 import { sideBySideLineDiff } from "../utils/payloadLineDiff";
@@ -276,7 +278,7 @@ export default function ReceiptEditor({
   }, [payload]);
 
   const hasHoldCodeExtraInfo = useMemo(
-    () => visibleItems.some((item) => getItemHoldCodeForGrouping(item).length > 0),
+    () => hasDistinctHoldCodesPerItemLot(visibleItems),
     [visibleItems]
   );
 
@@ -287,52 +289,16 @@ export default function ReceiptEditor({
   }, [hasHoldCodeExtraInfo, showHoldCodeDetails]);
 
   const displayRows = useMemo<ReceiptDisplayRow[]>(() => {
-    if (showHoldCodeDetails) {
-      return visibleItems.map((item) => {
-        const invL3 = item.Inventory_Level3 ?? item.Line_Stock_Details?.[0]?.To_Inventory_L3 ?? "";
-        const holdCode =
-          (item.Hold_Code ?? "").trim() || (item.Line_Stock_Details?.[0]?.To_Hold_Code ?? "").trim();
-        return {
-          key: `line-${item.Line_No}`,
-          lineLabel: item.Line_No,
-          itemCode: item.Item_Code,
-          description: item.Item_Description ?? "",
-          inventoryDisplay: invL3,
-          holdCode,
-          quantity: item.Quantity,
-          netWeight: item.Net_Weight_Shipped,
-          uom: displayLineUom(item),
-          rate: item.Order_Price,
-          isWeightBased: displayLineUom(item).trim().toUpperCase() === "KG",
-          sourceLineNos: [item.Line_No],
-        };
-      });
-    }
+    const groups = groupReceiptItemsForDisplay(visibleItems, {
+      includeHoldCode: showHoldCodeDetails,
+    });
 
-    const groups = new Map<string, ReceiptConfirmationItem[]>();
-    for (const item of visibleItems) {
-      const itemKey = (item.Item_Code ?? "").trim().toUpperCase();
-      const holdKey = getItemHoldCodeForGrouping(item);
-      const packKey = getItemPackKeyForGrouping(item);
-      const gkey = `${itemKey}||${holdKey}||${packKey}`;
-      const existing = groups.get(gkey);
-      if (existing == null) groups.set(gkey, [item]);
-      else existing.push(item);
-    }
-
-    return Array.from(groups.values()).map((items) => {
+    return groups.map((items) => {
       const first = items[0];
       const qty = items.reduce((sum, item) => sum + item.Quantity, 0);
       const netWeight = items.reduce((sum, item) => sum + item.Net_Weight_Shipped, 0);
       const lineNos = items.map((item) => item.Line_No);
-      const lotStrings = items.map((item) => {
-        const lot = item.Inventory_Level3 ?? item.Line_Stock_Details?.[0]?.To_Inventory_L3 ?? "";
-        return lot.trim().length > 0 ? lot.trim() : "—";
-      });
-      const inventoryDisplay = [...new Set(lotStrings)].join(" · ");
-      const priced = items
-        .map((item) => item.Order_Price)
-        .filter((v): v is number => v != null);
+      const priced = items.map((item) => item.Order_Price).filter((v): v is number => v != null);
       let rate: number | null = null;
       let rateIsAveraged = false;
       if (priced.length === 0) {
@@ -347,12 +313,16 @@ export default function ReceiptEditor({
         }
       }
       const uom = displayLineUom(first);
+      const holdCode = showHoldCodeDetails ? getItemHoldCodeDisplay(first) : undefined;
       return {
-        key: `consolidated-${lineNos.join("-")}`,
+        key: showHoldCodeDetails
+          ? `hold-${lineNos.join("-")}`
+          : `consolidated-${lineNos.join("-")}`,
         lineLabel: lineNos.length > 1 ? lineNos.join(", ") : lineNos[0],
         itemCode: first.Item_Code,
         description: first.Item_Description ?? "",
-        inventoryDisplay,
+        inventoryDisplay: getItemPackLotDisplay(first),
+        holdCode,
         quantity: qty,
         netWeight,
         uom,
@@ -505,7 +475,7 @@ export default function ReceiptEditor({
               title={
                 hasHoldCodeExtraInfo
                   ? undefined
-                  : "No hold codes on this receipt — there are no extra hold details to show."
+                  : "No stock item + lot groups with multiple hold codes — nothing extra to expand."
               }
             >
               <input

@@ -526,22 +526,19 @@ export function getReceiptLockUsernameForRequest(): string {
   return "";
 }
 
-/** Build relative URL for SDK invoke: `/v2/ReceiptNoPriceLock?DashboardId=…&Username=…` */
+/** Build relative URL for SDK invoke: `/v2/ReceiptNoPriceLock?DashboardId=…&Username=…` (unlock: empty Username). */
 export function receiptNoPriceLockInvokePath(dashboardId: string, username: string | null): string {
   const id = dashboardId.trim();
   const qs = new URLSearchParams();
   qs.set("DashboardId", id);
-  if (username != null && username.trim().length > 0) {
-    qs.set("Username", username.trim());
-  } else {
-    qs.set("Username", "null");
-  }
+  const trimmed = username != null ? username.trim() : "";
+  qs.set("Username", trimmed.length > 0 ? trimmed : "");
   return `${RECEIPT_LOCK_PATH}?${qs.toString()}`;
 }
 
 /**
  * Declares server-side lock for a support-dashboard row. `dashboardId` is the list row Id (e.g. XML &lt;Id&gt;).
- * POST with query string `DashboardId` and `Username` (same as the old GET); pass username null → query `Username=null`.
+ * POST with query string `DashboardId` and `Username` (same as the old GET); null/empty username → `Username=` (empty).
  */
 export async function setReceiptNoPriceLock(params: {
   dashboardId: string;

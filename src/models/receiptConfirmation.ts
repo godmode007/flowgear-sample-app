@@ -117,18 +117,116 @@ export interface ReceiptOrderListEntry {
   currentLockUser?: string | null;
 }
 
+/**
+ * Workflow target payloads may merge sub-lines with pipe-separated values (e.g. Attribute_1 "150526|150526").
+ * For grouping/display, use the first segment when all segments match; otherwise the first segment.
+ */
+export function normalizeReceiptMergedField(value: string | null | undefined): string {
+  const t = (value ?? "").trim();
+  if (!t.includes("|")) return t;
+  const parts = t
+    .split("|")
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+  if (parts.length === 0) return "";
+  const upper0 = parts[0]!.toUpperCase();
+  if (parts.every((p) => p.toUpperCase() === upper0)) return parts[0]!;
+  return parts[0]!;
+}
+
 export function getItemHoldCodeForGrouping(item: ReceiptConfirmationItem): string {
-  const h = (item.Hold_Code ?? "").trim() || (item.Line_Stock_Details?.[0]?.To_Hold_Code ?? "").trim();
+  const h =
+    normalizeReceiptMergedField(item.Hold_Code) ||
+    normalizeReceiptMergedField(item.Line_Stock_Details?.[0]?.To_Hold_Code);
   return h.toUpperCase();
 }
 
-/** Pack / destination L3 so same item + hold with different pack sizes stay separate rows. */
+/** Pack / destination L3 (pack size on receipt). */
 export function getItemPackKeyForGrouping(item: ReceiptConfirmationItem): string {
-  const toL3 = (item.Line_Stock_Details?.[0]?.To_Inventory_L3 ?? "").trim();
-  const invL3 = (item.Inventory_Level3 ?? "").trim();
-  const attr4 = (item.Attribute_4 ?? "").trim();
+  const toL3 = normalizeReceiptMergedField(item.Line_Stock_Details?.[0]?.To_Inventory_L3);
+  const invL3 = normalizeReceiptMergedField(item.Inventory_Level3);
+  const attr4 = normalizeReceiptMergedField(item.Attribute_4);
   const raw = toL3.length > 0 ? toL3 : invL3.length > 0 ? invL3 : attr4;
   return raw.toUpperCase();
+}
+
+/**
+ * Lot key for UI consolidation (stock item + this value).
+ * Uses pack/L3 shown in "Pack Size / Lot" so lines with the same item and pack merge even when
+ * Attribute_1 is missing on some workflow lines (avoids 150526||12.00KG vs 12.00KG splits).
+ */
+export function getItemLotKeyForGrouping(item: ReceiptConfirmationItem): string {
+  const packLot = getItemPackKeyForGrouping(item);
+  if (packLot.length > 0) return packLot;
+  const batchLot = normalizeReceiptMergedField(item.Attribute_1);
+  return batchLot.length > 0 ? batchLot.toUpperCase() : "—";
+}
+
+/** Pack size / lot label for the receipt table. */
+export function getItemPackLotDisplay(item: ReceiptConfirmationItem): string {
+  const l3 =
+    normalizeReceiptMergedField(item.Line_Stock_Details?.[0]?.To_Inventory_L3) ||
+    normalizeReceiptMergedField(item.Inventory_Level3) ||
+    normalizeReceiptMergedField(item.Attribute_4);
+  if (l3.length > 0) return l3;
+  const batch = normalizeReceiptMergedField(item.Attribute_1);
+  return batch.length > 0 ? batch : "—";
+}
+
+export function getItemHoldCodeDisplay(item: ReceiptConfirmationItem): string {
+  return (
+    normalizeReceiptMergedField(item.Hold_Code) ||
+    normalizeReceiptMergedField(item.Line_Stock_Details?.[0]?.To_Hold_Code)
+  );
+}
+
+/** Group key for consolidated receipt lines: stock item + lot; optional hold when expanding hold details. */
+export function getReceiptLineConsolidationKey(
+  item: ReceiptConfirmationItem,
+  options: { includeHoldCode: boolean }
+): string {
+  const itemKey = normalizeReceiptMergedField(item.Item_Code).toUpperCase();
+  const lotKey = getItemLotKeyForGrouping(item);
+  if (!options.includeHoldCode) {
+    return `${itemKey}||${lotKey}`;
+  }
+  return `${itemKey}||${lotKey}||${getItemHoldCodeForGrouping(item)}`;
+}
+
+/** True when the same stock item + lot appears on multiple lines with different hold codes. */
+export function hasDistinctHoldCodesPerItemLot(items: ReceiptConfirmationItem[]): boolean {
+  const holdsByItemLot = new Map<string, Set<string>>();
+  for (const item of items) {
+    if (isZeroOutLine(item)) continue;
+    const key = getReceiptLineConsolidationKey(item, { includeHoldCode: false });
+    let holds = holdsByItemLot.get(key);
+    if (holds == null) {
+      holds = new Set();
+      holdsByItemLot.set(key, holds);
+    }
+    holds.add(getItemHoldCodeForGrouping(item));
+  }
+  return [...holdsByItemLot.values()].some((holds) => holds.size > 1);
+}
+
+/** Group receipt lines for display; merges qty/weight/rate within each group. */
+export function groupReceiptItemsForDisplay(
+  items: ReceiptConfirmationItem[],
+  options: { includeHoldCode: boolean }
+): ReceiptConfirmationItem[][] {
+  const groups = new Map<string, ReceiptConfirmationItem[]>();
+  for (const item of items) {
+    const gkey = getReceiptLineConsolidationKey(item, options);
+    const existing = groups.get(gkey);
+    if (existing == null) groups.set(gkey, [item]);
+    else existing.push(item);
+  }
+  const result = [...groups.values()];
+  for (const group of result) {
+    group.sort((a, b) => compareReceiptLineNoAsc(a.Line_No, b.Line_No));
+  }
+  result.sort((a, b) => compareReceiptLineNoAsc(a[0]!.Line_No, b[0]!.Line_No));
+  return result;
 }
 
 /** Stable id for ReceiptNoPriceLock: workflow RecordId if present, else Company|Receipt|Reference. */
