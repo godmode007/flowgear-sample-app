@@ -31,7 +31,7 @@ interface ReceiptEditorProps {
   targetPayloadBase64?: string | null;
   sourcePayloadBase64?: string | null;
   onRefresh?: () => void;
-  onPostSuccess?: () => void | Promise<void>;
+  onPostSuccess?: (needsVerification?: boolean) => void | Promise<void>;
   foreignSessionLockActive?: boolean;
   /** When set, replaces the default “another tab” copy for the session-lock banner. */
   sessionLockBannerOverride?: string | null;
@@ -86,6 +86,7 @@ export default function ReceiptEditor({
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [postSuccessMessage, setPostSuccessMessage] = useState<string | null>(null);
+  const [postNeedsVerification, setPostNeedsVerification] = useState(false);
   const [statusLog, setStatusLog] = useState<string[]>([]);
   const [showTargetPayloadView, setShowTargetPayloadView] = useState(false);
   const [showSourcePayloadView, setShowSourcePayloadView] = useState(false);
@@ -262,7 +263,11 @@ export default function ReceiptEditor({
         } catch {
           /* release lock best-effort after successful post */
         }
-        setPostSuccessMessage("Receipt posted to ERP successfully.");
+        const msg = result.needsVerification
+          ? "Post submitted — refreshing list to confirm the record was accepted by the ERP."
+          : "Receipt posted to ERP successfully.";
+        setPostNeedsVerification(result.needsVerification ?? false);
+        setPostSuccessMessage(msg);
         setPayload(null);
       } else {
         const msg =
@@ -415,7 +420,7 @@ export default function ReceiptEditor({
               type="button"
               className="receipt-btn receipt-btn-primary"
               onClick={() => {
-                void Promise.resolve(onPostSuccess?.());
+                void Promise.resolve(onPostSuccess?.(postNeedsVerification));
                 onRefresh?.();
                 setPostSuccessMessage(null);
               }}
@@ -650,9 +655,9 @@ export default function ReceiptEditor({
             </div>
           )}
 
-          {isDev && (
+          {(isDev || (error != null && statusLog.length > 0)) && (
             <div className="receipt-status-section">
-              <div className="receipt-status-heading">Status (verbose)</div>
+              <div className="receipt-status-heading">Response detail</div>
               <div className="receipt-status-log" role="log" aria-live="polite">
                 {statusLog.length === 0 ? (
                   <div className="text-muted">No messages yet.</div>

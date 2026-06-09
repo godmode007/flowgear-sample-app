@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { Flowgear, AlertMessageTypes, AlertDismissOptions } from "flowgear-webapp";
 import type { CaptureState, ReceiptOrderListEntry, ReceiptConfirmationPayload } from "../models/receiptConfirmation";
 import {
   normalizePayloadOrderPriceToRate,
@@ -327,19 +328,35 @@ function App() {
     };
   }, [receiptLockKey]);
 
-  const handlePostSuccess = useCallback(() => {
+  const handlePostSuccess = useCallback((needsVerification?: boolean) => {
     if (selectedOrder == null) return;
     const id = dashboardRecordId;
     const username = getReceiptLockUsernameForRequest() || "system";
+    const afterRefresh = needsVerification && id != null
+      ? () => {
+          // Check if record is still in the list — if so, ERP likely rejected it.
+          const still = ordersRef.current.find(
+            (o) => (o.recordId != null ? String(o.recordId).trim() : null) === id
+          );
+          if (still != null) {
+            void Flowgear.Sdk.setAlert(
+              "The record is still in the queue — the ERP may have rejected it. Check the Flowgear activity log for details.",
+              AlertMessageTypes.Warning,
+              AlertDismissOptions.Tap
+            );
+          }
+        }
+      : undefined;
     if (id != null && id.length > 0) {
       void setPriceCaptureStatus({
         dashboardId: id,
         username,
         captureState: "Posted",
         pricedPayload: selectedOrder.payload,
-      }).then(() => void loadOrders()).catch(() => void loadOrders());
+      }).then(() => { void loadOrders().then(afterRefresh); })
+        .catch(() => { void loadOrders().then(afterRefresh); });
     } else {
-      void loadOrders();
+      void loadOrders().then(afterRefresh);
     }
   }, [selectedOrder, dashboardRecordId, loadOrders]);
 

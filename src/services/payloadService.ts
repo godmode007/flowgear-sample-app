@@ -49,6 +49,15 @@ const STANDALONE_API_URL =
   (typeof import.meta !== "undefined" && (import.meta as { env?: Record<string, string> }).env?.VITE_STANDALONE_API_URL) ||
   "";
 
+/**
+ * Flowgear site base URL for direct fetch fallback (e.g. https://cchcysra.flowgear.net).
+ * When set, POST to ERP uses fetch+credentials instead of Flowgear.Sdk.invoke so the
+ * full plain-text error body is preserved (the SDK's parseErrorResponse discards it).
+ * Set via VITE_FLOWGEAR_SITE_URL in .env.
+ */
+const FLOWGEAR_SITE_URL =
+  (typeof import.meta !== "undefined" && (import.meta as { env?: Record<string, string> }).env?.VITE_FLOWGEAR_SITE_URL || "").replace(/\/$/, "");
+
 /** Relative URL for per-receipt lock: POST with query ?DashboardId=&Username= (same shape as the prior GET binding). */
 const RECEIPT_LOCK_PATH = "/v2/ReceiptNoPriceLock";
 
@@ -164,11 +173,22 @@ export type PostToErpStatusCallback = (message: string) => void;
 
 export type PostToErpResult = {
   ok: boolean;
+  /** True when the SDK returned {} and success cannot be confirmed — caller should verify by refreshing the list. */
+  needsVerification?: boolean;
   statusCode?: string;
   body?: unknown;
   rawKeys?: string[];
   errorDetail?: string;
 };
+
+/**
+ * Strips the Flowgear boilerplate prefix from error messages.
+ * e.g. "Error (Error 1.0.0.4): Unexpected Error: <0001 ..." → "Unexpected Error: <0001 ..."
+ */
+function stripFlowgearErrorPrefix(text: string): string {
+  // Matches: "Error (Error X.X.X.X): " at the start (possibly repeated)
+  return text.replace(/^(Error\s*\(Error\s*[\d.]+\)\s*:\s*)+/i, "").trim();
+}
 
 function extractWorkflowErrorMessage(data: Record<string, unknown>, bodyStr: string | undefined): string | undefined {
   const stringCandidates: unknown[] = [
@@ -269,7 +289,16 @@ export async function postToErp(
     );
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e);
-    log(`Error: ${errMsg}`);
+    log(`SDK threw — type: ${e === null ? "null" : typeof e}`);
+    log(`SDK threw — instanceof Error: ${e instanceof Error}`);
+    log(`SDK threw — message/string: ${errMsg.slice(0, 300)}`);
+    // Dump the full thrown value so we can see its shape in the debug log.
+    try {
+      const raw = JSON.stringify(e, Object.getOwnPropertyNames(e instanceof Error ? e : Object(e)));
+      log(`SDK threw — JSON: ${raw.slice(0, 500)}`);
+    } catch {
+      log(`SDK threw — JSON: (not serialisable)`);
+    }
     // The Flowgear SDK throws on non-2xx responses rather than returning them.
     // Try to extract a Flowgear response object from the thrown value so we can
     // show the actual FgResponseBody error instead of a raw "{}" string.
@@ -279,20 +308,48 @@ export async function postToErp(
         : e;
     if (thrown != null && typeof thrown === "object") {
       const r = thrown as Record<string, unknown>;
-      const fgCode = r.FgResponseCode ?? r.responseCode ?? r.statusCode;
-      const fgBody = typeof r.FgResponseBody === "string" ? r.FgResponseBody
+      log(`SDK threw — object keys: ${Object.keys(r).join(", ")}`);
+      let fgCode: unknown = r.FgResponseCode ?? r.responseCode ?? r.statusCode;
+      let fgBody: string | undefined =
+        typeof r.FgResponseBody === "string" ? r.FgResponseBody
         : typeof r.responseMessage === "string" ? r.responseMessage
         : undefined;
+
+      // SDK may throw {"Message":"Error (Error X.X.X.X): {\"FgResponseCode\":400,\"FgResponseBody\":\"...\"}"}
+      // Try to extract the embedded JSON from the Message string.
+      if (fgCode == null && fgBody == null) {
+        const messageStr = typeof r.Message === "string" ? r.Message
+          : typeof r.message === "string" ? r.message
+          : null;
+        if (messageStr != null) {
+          const jsonStart = messageStr.indexOf("{");
+          if (jsonStart >= 0) {
+            const inner = safeParseJson(messageStr.slice(jsonStart)) as Record<string, unknown> | null;
+            if (inner != null) {
+              fgCode = inner.FgResponseCode ?? inner.responseCode ?? inner.statusCode ?? fgCode;
+              fgBody = typeof inner.FgResponseBody === "string" ? inner.FgResponseBody : fgBody;
+            }
+          }
+        }
+      }
+
       if (fgCode != null || fgBody != null) {
         const code = fgCode != null ? String(fgCode) : undefined;
-        log(`Flowgear error response: code=${code ?? "?"}, body=${(fgBody ?? "").slice(0, 200)}`);
-        const errorDetail = (fgBody?.trim().length ?? 0) > 0
+        log(`Flowgear error response: code=${code ?? "?"}, body=${(fgBody ?? "").slice(0, 300)}`);
+        const rawDetail = (fgBody?.trim().length ?? 0) > 0
           ? fgBody!.trim()
           : extractWorkflowErrorMessage(r, fgBody);
+        const errorDetail = rawDetail != null ? stripFlowgearErrorPrefix(rawDetail) : undefined;
         return { ok: false, statusCode: code, body: undefined, rawKeys: Object.keys(r), errorDetail };
       }
     }
-    throw e;
+    // The Flowgear SDK discards plain-text error bodies (parseErrorResponse throws "{}").
+    // To get the real error message, configure the ProcurementInbound Flowgear workflow
+    // to always return HTTP 200 with {"FgResponseCode":400,"FgResponseBody":"..."} in the body.
+    const fallbackMsg = (errMsg && errMsg !== "{}") ? errMsg
+      : "ERP rejected the receipt. Check the Flowgear activity log for the full error details.";
+    log(`Note: Flowgear SDK discarded the error body. To see the full message, have the ProcurementInbound workflow return HTTP 200 with FgResponseBody in the JSON body.`);
+    return { ok: false, statusCode: undefined, body: undefined, rawKeys: [], errorDetail: fallbackMsg };
   }
 
   log(`Response type: ${response === null ? "null" : typeof response}`);
@@ -362,39 +419,66 @@ export async function postToErp(
       : bodyRaw != null
         ? JSON.stringify(bodyRaw)
         : undefined;
+  // FgResponseBody may itself be a JSON-encoded Flowgear envelope when the workflow
+  // returns {"FgResponseCode":400,"FgResponseBody":"..."} and the SDK wraps it in
+  // an outer {"FgResponseCode":200,"FgResponseBody":"{inner json}","status":true}.
+  // Parse the inner envelope so its error code / body take precedence.
+  const innerEnvelope = bodyStr != null
+    ? (safeParseJson(bodyStr) as Record<string, unknown> | null)
+    : null;
+  const innerCode = innerEnvelope != null
+    ? (innerEnvelope.FgResponseCode ?? innerEnvelope.responseCode ?? innerEnvelope.statusCode)
+    : null;
+  const innerBody = innerEnvelope != null && typeof innerEnvelope.FgResponseBody === "string"
+    ? innerEnvelope.FgResponseBody
+    : null;
+  const effectiveCode = innerCode != null ? String(innerCode) : code;
+  const effectiveBodyStr = innerBody ?? bodyStr;
+
   const statusTrue =
     data.success === true ||
     data.success === "True" ||
     data.status === true ||
     data.status === "True";
+  // An explicit FgResponseCode that is not 200 must override status:True.
+  // Check both the outer code and the inner envelope code.
+  const codeNum = effectiveCode != null ? parseInt(effectiveCode, 10) : NaN;
+  const explicitError = !Number.isNaN(codeNum) && codeNum !== 200 && codeNum >= 400;
   const isEmptyObject = Object.keys(data).length === 0;
   const ok =
-    isEmptyObject ||
+    !explicitError &&
+    (isEmptyObject ||
     statusTrue ||
     code === "200" ||
-    String(code) === "200";
+    String(code) === "200");
 
   if (isEmptyObject) {
-    log("Empty response {} treated as success.");
+    log("Empty response {} — SDK does not return POST body. Will verify by refreshing the list.");
   }
   log(
     ok
-      ? `Status: ${code ?? (isEmptyObject ? "200" : "unknown")} (success)`
-      : `Status: ${code ?? "unknown"} (non-OK)`
+      ? `Status: ${effectiveCode ?? (isEmptyObject ? "200" : "unknown")} (success)`
+      : `Status: ${effectiveCode ?? "unknown"} (non-OK)`
   );
-  if (bodyStr != null && bodyStr.length > 0) {
-    log(`Body length: ${bodyStr.length} chars`);
+  if (effectiveBodyStr != null && effectiveBodyStr.length > 0) {
+    log(`Body: ${effectiveBodyStr.slice(0, 300)}`);
   }
 
-  const parsedBody = bodyStr != null ? safeParseJson(bodyStr) : undefined;
-  const errorDetail = ok ? undefined : extractWorkflowErrorMessage(data, bodyStr);
+  const parsedBody = effectiveBodyStr != null ? safeParseJson(effectiveBodyStr) : undefined;
+  // Use effective body (inner envelope if present) for error extraction so we get
+  // the workflow's FgResponseBody rather than the SDK wrapper's outer body.
+  const rawErrorDetail = ok ? undefined
+    : (innerBody?.trim().length ?? 0) > 0 ? innerBody!.trim()
+    : extractWorkflowErrorMessage(innerEnvelope ?? data, effectiveBodyStr);
+  const errorDetail = rawErrorDetail != null ? stripFlowgearErrorPrefix(rawErrorDetail) : undefined;
   if (!ok && errorDetail != null) {
     log(`Workflow error: ${errorDetail.length <= 500 ? errorDetail : errorDetail.slice(0, 500) + "…"}`);
   }
 
   return {
     ok,
-    statusCode: code,
+    needsVerification: isEmptyObject,
+    statusCode: effectiveCode ?? code,
     body: parsedBody,
     rawKeys: Object.keys(data),
     errorDetail,
