@@ -1,7 +1,9 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import type { ReceiptOrderListEntry, ReceiptConfirmationPayload } from "../models/receiptConfirmation";
+import type { CaptureState, ReceiptOrderListEntry, ReceiptConfirmationPayload } from "../models/receiptConfirmation";
 import {
   normalizePayloadOrderPriceToRate,
+  hasMissingOrderPrice,
+  hasInvalidOrderPrice,
   lockUsersMatch,
   compareReceiptOrdersByDetailDate,
   getReceiptLockRecordId,
@@ -15,6 +17,8 @@ import {
   getReceiptLockUsernameForRequest,
   resolveReceiptLockUsernameForRequest,
   receiptNoPriceLockInvokePath,
+  setPriceCaptureStatus,
+  applySlimPricePayload,
 } from "../services/payloadService";
 import {
   tryAcquireReceiptLock,
@@ -33,6 +37,7 @@ import {
 import OrderListPanel from "./OrderListPanel";
 import OrderFiltersBar from "./OrderFiltersBar";
 import ReceiptEditor from "./ReceiptEditor";
+import TourOverlay, { isTourCompleted, isStorageAvailable } from "./TourOverlay";
 
 const isDev = import.meta.env.DEV;
 
@@ -57,6 +62,11 @@ function readLeftPanelCollapsed(): boolean {
 const LOCK_DEBUG_LOG_MAX = 40;
 
 function App() {
+  // Only auto-open if storage is available (so we can remember the user dismissed it).
+  // In a sandboxed iframe without allow-same-origin, storage is unavailable and we
+  // skip auto-open to avoid nagging on every navigation — user can still use Help button.
+  const [showTour, setShowTour] = useState(() => isStorageAvailable() && !isTourCompleted());
+
   /** Dev-only lines for ReceiptNoPriceLock invoke debugging (shown in ReceiptEditor footer). */
   const [lockDebugLog, setLockDebugLog] = useState<string[]>([]);
 
@@ -67,6 +77,8 @@ function App() {
   }, []);
 
   const [orders, setOrders] = useState<ReceiptOrderListEntry[]>([]);
+  // Keep ordersRef in sync so async handlers (navigate-away, post) can read current orders without stale closures.
+  useEffect(() => { ordersRef.current = orders; }, [orders]);
   const [listFilters, setListFilters] = useState<OrderListFilters>({
     company: "",
     probill: "",
@@ -100,6 +112,8 @@ function App() {
   const lastSelectedListRecordIdRef = useRef<string | null>(null);
   const lockGenerationRef = useRef(0);
   const rateEditFlagsRef = useRef<Record<string, boolean>>({});
+  /** Always-current snapshot of orders — used in async handlers to avoid stale closure reads. */
+  const ordersRef = useRef<ReceiptOrderListEntry[]>([]);
   const [authFailed, setAuthFailed] = useState(false);
   const [connectionFailed, setConnectionFailed] = useState(false);
   const embedded = isEmbeddedInConsole();
@@ -164,6 +178,11 @@ function App() {
     }
   }, []);
 
+  // Auto-load orders on mount so there's data in the table from the start
+  useEffect(() => {
+    void loadOrders();
+  }, [loadOrders]);
+
   useEffect(() => {
     if (filteredOrders.length === 0) {
       setSelectedIndex(null);
@@ -211,10 +230,7 @@ function App() {
     if (editingId != null && prevId != null && editingId === prevId && newId !== prevId) {
       const hadRateEdits = rateEditFlagsRef.current[editingId] === true;
       void (async () => {
-        if (hadRateEdits) {
-          delete rateEditFlagsRef.current[editingId];
-          return;
-        }
+        // Always release lock on navigate away, regardless of whether rates were edited.
         try {
           const unlockPath = receiptNoPriceLockInvokePath(editingId, null);
           appendLockDebug(`(row change) Flowgear.Sdk.invoke POST ${unlockPath}`);
@@ -240,9 +256,31 @@ function App() {
         } finally {
           delete rateEditFlagsRef.current[editingId];
         }
+
+        // If rates were edited, persist capture state to server (fire-and-forget).
+        if (hadRateEdits) {
+          const editedOrder = ordersRef.current.find(
+            (o) => (o.recordId != null ? String(o.recordId).trim() : null) === editingId
+          );
+          const username = getReceiptLockUsernameForRequest();
+          if (editedOrder != null && username.length > 0) {
+            const captureState: CaptureState =
+              hasMissingOrderPrice(editedOrder.payload) || hasInvalidOrderPrice(editedOrder.payload)
+                ? "Edited"
+                : "ReadyToPost";
+            void setPriceCaptureStatus({
+              dashboardId: editingId,
+              username,
+              captureState,
+              pricedPayload: editedOrder.payload,
+            }).then(() => {
+              void loadOrders();
+            }).catch(() => { /* non-critical */ });
+          }
+        }
       })();
     }
-  }, [selectedOrder, dashboardRecordId, appendLockDebug]);
+  }, [selectedOrder, dashboardRecordId, appendLockDebug, loadOrders]);
 
   const receiptLockKey =
     selectedOrder?.payload != null ? receiptLockKeyFromPayload(selectedOrder.payload) : undefined;
@@ -292,8 +330,19 @@ function App() {
   const handlePostSuccess = useCallback(() => {
     if (selectedOrder == null) return;
     const k = ordersListEntryKey(selectedOrder);
+    // Fire-and-forget: mark as Posted on server (needed by support dashboard).
+    const id = dashboardRecordId;
+    const username = getReceiptLockUsernameForRequest() || "system";
+    if (id != null && id.length > 0) {
+      void setPriceCaptureStatus({
+        dashboardId: id,
+        username,
+        captureState: "Posted",
+        pricedPayload: selectedOrder.payload,
+      }).catch(() => { /* non-critical */ });
+    }
     setOrders((prev) => prev.filter((o) => ordersListEntryKey(o) !== k));
-  }, [selectedOrder]);
+  }, [selectedOrder, dashboardRecordId]);
 
   const selectedOrderKey = selectedOrder != null ? ordersListEntryKey(selectedOrder) : null;
 
@@ -416,7 +465,27 @@ function App() {
         <div className="command-container-center-controls">
           <span className="navbar-text">Receipt confirmation – edit Order Price then Post to ERP</span>
         </div>
+        <div className="tour-help-btn-wrap">
+          <button
+            type="button"
+            className="tour-help-btn"
+            onClick={() => setShowTour(true)}
+            title="Open interactive help tour"
+            aria-label="Open interactive help tour"
+          >
+            Help
+          </button>
+          <a
+            className="tour-guide-link"
+            href="help.html"
+            title="Open full user guide"
+          >
+            User guide
+          </a>
+        </div>
       </nav>
+
+      {showTour && <TourOverlay onClose={() => setShowTour(false)} />}
 
       {!embedded && (
         <div className="alert alert-warning receipt-auth-failed-banner m-0 rounded-0" role="alert">
@@ -497,7 +566,13 @@ function App() {
           <div className="receipt-split-right-body">
             <ReceiptEditor
               key={selectedOrder != null ? ordersListEntryKey(selectedOrder) : "none"}
-              initialPayload={selectedOrder?.payload ?? null}
+              initialPayload={
+                selectedOrder == null
+                  ? null
+                  : selectedOrder.pricePayloadBase64
+                  ? applySlimPricePayload(selectedOrder.payload, selectedOrder.pricePayloadBase64)
+                  : selectedOrder.payload
+              }
               targetPayloadBase64={selectedOrder?.targetPayloadBase64 ?? null}
               sourcePayloadBase64={selectedOrder?.sourcePayloadBase64 ?? null}
               onRefresh={loadOrders}

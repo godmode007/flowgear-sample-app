@@ -26,7 +26,7 @@ export default function OrderFiltersBar({
   const patch = (partial: Partial<OrderListFilters>) => onFiltersChange({ ...filters, ...partial });
 
   return (
-    <div className="receipt-main-filters" aria-label="Filter orders">
+    <div className="receipt-main-filters" aria-label="Filter orders" data-tour="filters-bar">
       <div className="receipt-main-filters-head">
         <span className="receipt-main-filters-title">Search orders</span>
         <span className="receipt-main-filters-count">{loadedCount} loaded</span>
@@ -93,6 +93,7 @@ export default function OrderFiltersBar({
           <button
             type="button"
             className="receipt-btn receipt-btn-filter-refresh"
+            data-tour="filters-refresh"
             onClick={onRefresh}
             disabled={loading}
           >

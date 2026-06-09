@@ -1,10 +1,27 @@
 @import "flowgear-webapp/dist/css/app.css";
 
-/* CCH brand colours */
+/* CCH brand colours (same in light and dark — no separate dark palette) */
 $cch-blue: #00298B;
 $cch-blue-dark: #001f6b;
 $cch-blue-light: #80CEEF;
 $cch-blue-light-bg: #d4eef9;
+
+/* Neutral surfaces for Flowgear Console dark mode (data-theme="dark-theme-ci") */
+$dark-bg: #1c2128;
+$dark-surface: #22272e;
+$dark-surface-raised: #2d3338;
+$dark-surface-hover: #373e47;
+$dark-border: #444c56;
+$dark-text: #adbac7;
+$dark-text-muted: #768390;
+$dark-text-secondary: #919bab;
+
+@mixin dark-theme {
+    [data-theme="dark-theme-ci"] &,
+    .theme-dark & {
+        @content;
+    }
+}
 
 html {
     height: 100%;
@@ -493,6 +510,51 @@ body {
     margin-left: 0;
 }
 
+// Edited — rates entered but not yet fully priced or posted (amber)
+.receipt-orders-item-edited {
+    border-left: 3px solid #F59E0B;
+    background: #FFFBEB;
+    &:hover { background: #FEF3C7; }
+    &.receipt-orders-item-selected { background: #FEF3C7; border-left-color: #D97706; }
+}
+
+// Ready to post — all lines priced (soft green)
+.receipt-orders-item-ready {
+    border-left: 3px solid #10B981;
+    background: #F0FDF4;
+    &:hover { background: #DCFCE7; }
+    &.receipt-orders-item-selected { background: #DCFCE7; border-left-color: #059669; }
+}
+
+.receipt-orders-item-capture-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 3px 0 0 0;
+}
+
+.receipt-orders-item-capture-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    .receipt-orders-item-edited & { background: #FDE68A; color: #92400E; }
+    .receipt-orders-item-ready & { background: #A7F3D0; color: #065F46; }
+}
+
+.receipt-orders-item-capture-editor {
+    font-size: 10px;
+    color: #6B7280;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+}
+
 .receipt-orders-list-head {
     display: grid;
     grid-template-columns: 84px minmax(0, 1fr) 76px;
@@ -663,6 +725,7 @@ body {
 .receipt-sheet-meta {
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     gap: 16px 24px;
     font-size: 0.875rem;
     opacity: 0.95;
@@ -670,6 +733,11 @@ body {
 
 .receipt-sheet-meta span {
     white-space: nowrap;
+}
+
+.receipt-sheet-meta-extra {
+    justify-content: center;
+    margin-top: 6px;
 }
 
 .receipt-sheet-alert {
@@ -1314,6 +1382,222 @@ body {
     color: $cch-blue-light;
 }
 
+/* ---------- Dark theme: app shell, orders panel, filters dropdown ---------- */
+[data-theme="dark-theme-ci"],
+.theme-dark,
+html[data-theme="dark-theme-ci"],
+html.theme-dark,
+body[data-theme="dark-theme-ci"],
+body.theme-dark {
+    color-scheme: dark;
+
+    body {
+        background: $dark-bg;
+        color: $dark-text;
+    }
+
+    .text-muted {
+        color: $dark-text-muted !important;
+    }
+
+    .receipt-app-nav {
+        background: $dark-surface-raised !important;
+        border-bottom-color: $dark-border;
+    }
+
+    .receipt-app-nav .navbar-text {
+        color: $dark-text;
+    }
+
+    .receipt-post-success {
+        background: rgba(25, 135, 84, 0.18);
+        border-color: rgba(63, 185, 80, 0.35);
+        color: #7ee787;
+    }
+
+    .receipt-split-left,
+    .receipt-split-right {
+        background: $dark-surface;
+    }
+
+    .receipt-split-right-body {
+        background: $dark-bg;
+    }
+
+    .receipt-orders-list-status {
+        background: $dark-surface-raised;
+        border-bottom-color: $dark-border;
+        color: $dark-text-secondary;
+    }
+
+    .receipt-orders-list-head {
+        background: $dark-surface-raised;
+        border-bottom-color: $dark-border;
+        color: $cch-blue-light;
+    }
+
+    .receipt-orders-list-head-date:hover {
+        background: rgba($cch-blue-light, 0.12);
+    }
+
+    .receipt-orders-empty {
+        color: $dark-text-muted;
+    }
+
+    .receipt-orders-item {
+        border-bottom-color: $dark-border;
+        color: $dark-text;
+    }
+
+    .receipt-orders-item:hover {
+        background: $dark-surface-hover;
+    }
+
+    .receipt-orders-item-selected {
+        background: rgba($cch-blue, 0.28);
+        border-left-color: $cch-blue-light;
+    }
+
+    .receipt-orders-item-date {
+        color: $dark-text-secondary;
+    }
+
+    .receipt-orders-item-user {
+        color: $cch-blue-light;
+    }
+
+    .receipt-orders-item-label {
+        color: $dark-text;
+    }
+
+    .receipt-orders-item-sub {
+        color: $dark-text-muted;
+    }
+
+    .receipt-lock-user-ms-panel {
+        background: $dark-surface-raised;
+        color: $dark-text;
+        border-color: $dark-border;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    }
+
+    .receipt-lock-user-ms-search {
+        background: $dark-surface;
+        color: $dark-text;
+        border-color: $dark-border;
+    }
+
+    .receipt-lock-user-ms-option:hover {
+        background: $dark-surface-hover;
+    }
+
+    .receipt-lock-user-ms-option-mine {
+        border-bottom-color: $dark-border;
+    }
+
+    .receipt-lock-user-ms-empty {
+        color: $dark-text-muted;
+    }
+
+    .receipt-lock-user-ms-footer {
+        border-top-color: $dark-border;
+    }
+
+    .receipt-lock-user-ms-clear {
+        color: $cch-blue-light;
+    }
+
+    .receipt-lock-user-ms-clear:hover {
+        color: #fff;
+    }
+
+    .receipt-table-controls {
+        background: $dark-surface-raised;
+        border-bottom-color: $dark-border;
+    }
+
+    .receipt-hold-toggle {
+        color: $dark-text;
+    }
+
+    .receipt-hold-view-hint {
+        color: $cch-blue-light;
+    }
+
+    .receipt-tr-total {
+        background: rgba($cch-blue, 0.22);
+        border-top-color: $cch-blue-light;
+    }
+
+    .receipt-tr-total .receipt-td {
+        color: $dark-text;
+    }
+
+    .receipt-td {
+        color: $dark-text;
+    }
+
+    .receipt-rate-readonly {
+        color: $cch-blue-light;
+    }
+
+    .receipt-rate-asterisk {
+        color: $cch-blue-light;
+    }
+
+    .receipt-rate-input-wrap-averaged .receipt-input-price {
+        background: rgba($cch-blue, 0.25) !important;
+        border-color: rgba($cch-blue-light, 0.55) !important;
+    }
+
+    .receipt-rate-average-footnote {
+        color: $cch-blue-light;
+        background: rgba($cch-blue, 0.18);
+        border-left-color: $cch-blue-light;
+    }
+
+    .receipt-sheet-powered {
+        color: $dark-text-muted;
+    }
+
+    .receipt-sheet-header-logo {
+        background: $cch-blue-dark;
+    }
+
+    .receipt-status-section,
+    .receipt-debug-payload-section {
+        border-top-color: $dark-border;
+    }
+
+    .receipt-status-heading {
+        color: $dark-text-muted;
+    }
+
+    .receipt-btn-secondary {
+        background: $dark-surface-raised;
+        border-color: $cch-blue-light;
+        color: $cch-blue-light;
+    }
+
+    .receipt-btn-secondary:hover:not(:disabled) {
+        background: rgba($cch-blue, 0.28);
+        border-color: $cch-blue-light;
+        color: #fff;
+    }
+
+    .alert-warning {
+        background: rgba(255, 193, 7, 0.12);
+        border-color: rgba(255, 193, 7, 0.35);
+        color: #f0c674;
+    }
+
+    .alert-danger {
+        background: rgba(248, 81, 73, 0.12);
+        border-color: rgba(248, 81, 73, 0.35);
+        color: #ff7b72;
+    }
+}
+
 /* Legacy table (other pages) */
 table {
     width: 100%;
@@ -1338,4 +1622,244 @@ table th.text-align-right {
 .table-status {
     margin-top: 40px;
     text-align: center;
+}
+
+/* ============================================================
+   Interactive Tour Overlay
+   ============================================================ */
+
+/* Dark full-screen backdrop */
+.tour-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: transparent;
+    cursor: pointer;
+}
+
+/* Spotlight box — box-shadow creates the dim surround */
+.tour-spotlight {
+    position: fixed;
+    z-index: 10001;
+    border-radius: 5px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.62);
+    pointer-events: none;
+    transition: top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease;
+}
+
+/* Tooltip card */
+.tour-tooltip {
+    width: 340px;
+    max-width: calc(100vw - 32px);
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22), 0 2px 8px rgba(0, 0, 0, 0.12);
+    padding: 18px 20px 16px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #212529;
+    z-index: 10002;
+
+    @include dark-theme {
+        background: $dark-surface-raised;
+        color: $dark-text;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+}
+
+.tour-tooltip-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.tour-step-indicator {
+    font-size: 12px;
+    font-weight: 600;
+    color: $cch-blue;
+    letter-spacing: 0.02em;
+
+    @include dark-theme {
+        color: $cch-blue-light;
+    }
+}
+
+.tour-close-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: #6c757d;
+    padding: 0 2px;
+    line-height: 1;
+
+    &:hover {
+        color: #212529;
+    }
+
+    @include dark-theme {
+        color: $dark-text-muted;
+        &:hover { color: $dark-text; }
+    }
+}
+
+.tour-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: $cch-blue;
+    margin: 0 0 8px;
+
+    @include dark-theme {
+        color: $cch-blue-light;
+    }
+}
+
+.tour-content {
+    margin: 0 0 16px;
+    color: #495057;
+
+    @include dark-theme {
+        color: $dark-text;
+    }
+}
+
+.tour-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.tour-btn {
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 16px;
+    transition: background 0.15s;
+
+    &:focus-visible {
+        outline: 2px solid $cch-blue;
+        outline-offset: 2px;
+    }
+}
+
+.tour-btn-primary {
+    background: $cch-blue;
+    color: #fff;
+
+    &:hover {
+        background: $cch-blue-dark;
+    }
+}
+
+.tour-btn-secondary {
+    background: #e9ecef;
+    color: #495057;
+
+    &:hover {
+        background: #dee2e6;
+    }
+
+    @include dark-theme {
+        background: $dark-surface-hover;
+        color: $dark-text;
+    }
+}
+
+.tour-skip-link {
+    display: block;
+    margin-top: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    color: #6c757d;
+    text-align: center;
+    width: 100%;
+    padding: 0;
+
+    &:hover {
+        color: #212529;
+        text-decoration: underline;
+    }
+
+    @include dark-theme {
+        color: $dark-text-muted;
+        &:hover { color: $dark-text; }
+    }
+}
+
+/* Help button wrapper — right-aligned inside the navbar */
+.tour-help-btn-wrap {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+}
+
+/* "User guide ↗" link next to Help button */
+.tour-guide-link {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    margin-left: 10px;
+    white-space: nowrap;
+
+    &:hover {
+        color: #fff;
+        text-decoration: underline;
+    }
+}
+
+/* Help button in navbar */
+.tour-help-btn {
+    background: #fff;
+    border: none;
+    border-radius: 14px;
+    color: $cch-blue;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 0 12px;
+    height: 28px;
+    line-height: 28px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 12px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    transition: background 0.15s, box-shadow 0.15s;
+
+    &::before {
+        content: "?";
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: $cch-blue;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 900;
+        flex-shrink: 0;
+    }
+
+    &:hover {
+        background: $cch-blue-light-bg;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    }
+
+    &:focus-visible {
+        outline: 2px solid $cch-blue-light;
+        outline-offset: 2px;
+    }
 }

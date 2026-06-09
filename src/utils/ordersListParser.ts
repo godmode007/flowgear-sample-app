@@ -3,7 +3,7 @@
  * containing base64-encoded JSON (ReceiptConfirmationPayload).
  * Splits into orders (one payload per Table) and returns them as an array.
  */
-import type { ReceiptConfirmationPayload, ReceiptOrderListEntry } from "../models/receiptConfirmation";
+import type { CaptureState, ReceiptConfirmationPayload, ReceiptOrderListEntry } from "../models/receiptConfirmation";
 
 function safeParseJson(s: string): unknown {
   try {
@@ -14,12 +14,10 @@ function safeParseJson(s: string): unknown {
 }
 
 function isReceiptPayload(value: unknown): value is ReceiptConfirmationPayload {
-  return (
-    value != null &&
-    typeof value === "object" &&
-    "Receipt_Confirmation" in value &&
-    (value as ReceiptConfirmationPayload).Receipt_Confirmation != null
-  );
+  // Accept any object that has a Receipt_Confirmation key — extra/unknown fields are ignored.
+  if (value == null || typeof value !== "object") return false;
+  const rc = (value as Record<string, unknown>).Receipt_Confirmation;
+  return rc != null && typeof rc === "object";
 }
 
 /** Optional metadata siblings under <Table> (besides Content). */
@@ -41,6 +39,14 @@ function looksLikeBase64PayloadContent(s: string): boolean {
   if (/^data:[^;]+;base64,/i.test(s.trim())) return true;
   if (t.length % 4 === 1) return false;
   return /^[A-Za-z0-9+/]+=*$/.test(t);
+}
+
+function parseCaptureState(value: string | null | undefined): CaptureState | null {
+  const v = (value ?? "").trim();
+  if (v === "Edited" || v === "ReadyToPost" || v === "Posted") return v;
+  // Accept legacy "Partial" from older records
+  if (v === "Partial") return "Edited";
+  return null;
 }
 
 /** Source / alternate payload: explicit tags, or Source only when base64-like (not e.g. "KMotion"). */
@@ -73,14 +79,8 @@ export function parseResultTableXml(xmlString: string): ReceiptOrderListEntry[] 
     const tables = doc.querySelectorAll("Table");
     const out: ReceiptOrderListEntry[] = [];
     for (let i = 0; i < tables.length; i++) {
-      const table = tables[i];
-      const contentEl = table.querySelector("Content");
-      const raw = contentEl?.textContent?.trim();
-      if (!raw) continue;
+      const table = tables[i]!;
       try {
-        const jsonStr = atob(raw);
-        const parsed = safeParseJson(jsonStr);
-        if (!isReceiptPayload(parsed)) continue;
         const recordId = tableMetaText(table, "RecordId", "Id", "DashboardRecordId");
         const currentLockUser = tableMetaText(
           table,
@@ -91,16 +91,65 @@ export function parseResultTableXml(xmlString: string): ReceiptOrderListEntry[] 
           "LockHolder",
           "LockHolderUser"
         );
+        const captureStateRaw = tableMetaText(table, "CaptureState", "PriceCaptureState");
+        const lastEditedBy = tableMetaText(table, "LastEditedBy", "LastEditedUser", "CaptureUser");
+        const pricePayloadBase64 = tableMetaText(table, "PricePayload", "PriceContent", "CapturePayload");
+
+        const contentRaw = table.querySelector("Content")?.textContent?.trim() ?? null;
         const sourceRaw = tableSourcePayloadBase64Xml(table);
+
+        // Try Content first as the Receipt_Confirmation payload.
+        // Some workflows store a different format in Content (e.g. purchaseReceipt for SageX3)
+        // and the Receipt_Confirmation payload in SourcePayload — handle both arrangements.
+        let payload: ReceiptConfirmationPayload | null = null;
+        let targetPayloadBase64: string | null = null;
+        let sourcePayloadBase64: string | null = sourceRaw;
+
+        if (contentRaw) {
+          try {
+            const decoded = safeParseJson(atob(contentRaw));
+            if (isReceiptPayload(decoded)) {
+              payload = decoded;
+              targetPayloadBase64 = null;
+            } else {
+              // Content is a different format (e.g. ERP target payload) — try SourcePayload instead.
+              targetPayloadBase64 = contentRaw;
+              sourcePayloadBase64 = null; // SourcePayload becomes the main payload below
+              if (sourceRaw) {
+                try {
+                  const srcDecoded = safeParseJson(atob(sourceRaw));
+                  if (isReceiptPayload(srcDecoded)) payload = srcDecoded;
+                } catch { /* not decodeable */ }
+              }
+            }
+          } catch { /* invalid base64 — try SourcePayload */ }
+        }
+
+        // Last resort: try SourcePayload as main payload if Content didn't yield one.
+        if (payload == null && sourceRaw && sourcePayloadBase64 !== null) {
+          try {
+            const srcDecoded = safeParseJson(atob(sourceRaw));
+            if (isReceiptPayload(srcDecoded)) {
+              payload = srcDecoded;
+              sourcePayloadBase64 = null;
+            }
+          } catch { /* not decodeable */ }
+        }
+
+        if (payload == null) continue; // no usable Receipt_Confirmation payload in this row
+
         out.push({
-          payload: parsed,
-          targetPayloadBase64: null,
-          sourcePayloadBase64: sourceRaw,
+          payload,
+          targetPayloadBase64,
+          sourcePayloadBase64,
           recordId: recordId ?? undefined,
           currentLockUser: currentLockUser ?? undefined,
+          captureState: parseCaptureState(captureStateRaw),
+          lastEditedBy: lastEditedBy ?? undefined,
+          pricePayloadBase64: pricePayloadBase64 ?? undefined,
         });
       } catch {
-        // skip invalid base64 or JSON
+        // skip any row that throws unexpectedly
       }
     }
     return out;
@@ -125,6 +174,9 @@ export function isResultTableXml(value: string): boolean {
 function tableRowMeta(row: Record<string, unknown>): {
   recordId: string | undefined;
   currentLockUser: string | undefined;
+  captureState: CaptureState | null;
+  lastEditedBy: string | undefined;
+  pricePayloadBase64: string | undefined;
 } {
   const pick = (...keys: string[]): string | undefined => {
     for (const k of keys) {
@@ -150,6 +202,9 @@ function tableRowMeta(row: Record<string, unknown>): {
       "LockHolderUser",
       "lockHolderUser"
     ),
+    captureState: parseCaptureState(pick("CaptureState", "PriceCaptureState")),
+    lastEditedBy: pick("LastEditedBy", "LastEditedUser", "CaptureUser"),
+    pricePayloadBase64: pick("PricePayload", "PriceContent", "CapturePayload"),
   };
 }
 
@@ -188,23 +243,58 @@ export function parseResultTableJson(jsonString: string): ReceiptOrderListEntry[
   const rows = Array.isArray(table) ? table : table != null && typeof table === "object" ? [table] : [];
   const out: ReceiptOrderListEntry[] = [];
   for (const row of rows) {
-    const content = typeof row?.Content === "string" ? row.Content.trim() : "";
-    if (!content) continue;
     try {
-      const jsonStr = atob(content);
-      const payload = safeParseJson(jsonStr);
-      if (!isReceiptPayload(payload)) continue;
+      const contentRaw = typeof row?.Content === "string" ? row.Content.trim() : "";
       const meta = tableRowMeta(row);
-      const sourceB64 = tableRowSourceBase64(row);
+      const sourceRaw = tableRowSourceBase64(row);
+
+      let payload: ReceiptConfirmationPayload | null = null;
+      let targetPayloadBase64: string | null = null;
+      let sourcePayloadBase64: string | null = sourceRaw;
+
+      if (contentRaw) {
+        try {
+          const decoded = safeParseJson(atob(contentRaw));
+          if (isReceiptPayload(decoded)) {
+            payload = decoded;
+          } else {
+            // Content is a non-Receipt_Confirmation format — treat as target payload, use SourcePayload instead.
+            targetPayloadBase64 = contentRaw;
+            sourcePayloadBase64 = null;
+            if (sourceRaw) {
+              try {
+                const srcDecoded = safeParseJson(atob(sourceRaw));
+                if (isReceiptPayload(srcDecoded)) payload = srcDecoded;
+              } catch { /* not decodeable */ }
+            }
+          }
+        } catch { /* invalid base64 */ }
+      }
+
+      if (payload == null && sourceRaw && sourcePayloadBase64 !== null) {
+        try {
+          const srcDecoded = safeParseJson(atob(sourceRaw));
+          if (isReceiptPayload(srcDecoded)) {
+            payload = srcDecoded;
+            sourcePayloadBase64 = null;
+          }
+        } catch { /* not decodeable */ }
+      }
+
+      if (payload == null) continue;
+
       out.push({
         payload,
-        targetPayloadBase64: null,
-        sourcePayloadBase64: sourceB64,
+        targetPayloadBase64,
+        sourcePayloadBase64,
         recordId: meta.recordId,
         currentLockUser: meta.currentLockUser,
+        captureState: meta.captureState,
+        lastEditedBy: meta.lastEditedBy,
+        pricePayloadBase64: meta.pricePayloadBase64,
       });
     } catch {
-      /* skip invalid base64 or JSON */
+      /* skip any row that throws unexpectedly */
     }
   }
   return out;
@@ -218,8 +308,40 @@ export function parseResultTableJsonRows(jsonString: string): ReceiptOrderListEn
   if (!Array.isArray(parsed)) return [];
   const out: ReceiptOrderListEntry[] = [];
   for (const item of parsed) {
-    if (isReceiptPayload(item)) {
-      out.push({ payload: item, targetPayloadBase64: null, sourcePayloadBase64: null });
+    try {
+      if (!item || typeof item !== "object") continue;
+      const row = item as Record<string, unknown>;
+      // Support both bare payload arrays and row-wrapper arrays with a Content field.
+      if (typeof row.Content === "string" && row.Content.trim().length > 0) {
+        const jsonStr = atob(row.Content.trim());
+        const payload = safeParseJson(jsonStr);
+        if (!isReceiptPayload(payload)) continue;
+        const meta = tableRowMeta(row);
+        out.push({
+          payload,
+          targetPayloadBase64: null,
+          sourcePayloadBase64: tableRowSourceBase64(row),
+          recordId: meta.recordId,
+          currentLockUser: meta.currentLockUser,
+          captureState: meta.captureState,
+          lastEditedBy: meta.lastEditedBy,
+          pricePayloadBase64: meta.pricePayloadBase64,
+        });
+      } else if (isReceiptPayload(item)) {
+        const meta = tableRowMeta(row);
+        out.push({
+          payload: item,
+          targetPayloadBase64: null,
+          sourcePayloadBase64: tableRowSourceBase64(row),
+          recordId: meta.recordId,
+          currentLockUser: meta.currentLockUser,
+          captureState: meta.captureState,
+          lastEditedBy: meta.lastEditedBy,
+          pricePayloadBase64: meta.pricePayloadBase64,
+        });
+      }
+    } catch {
+      /* skip unparseable rows */
     }
   }
   return out;

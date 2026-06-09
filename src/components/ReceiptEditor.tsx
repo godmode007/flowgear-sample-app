@@ -438,7 +438,7 @@ export default function ReceiptEditor({
   return (
     <div className="app-contentarea">
       <div className="receipt-sheet">
-        <header className="receipt-sheet-header">
+        <header className="receipt-sheet-header" data-tour="receipt-header">
           <div className="receipt-sheet-header-logo">
             <img src={`${import.meta.env.BASE_URL}CCH Logo.png?v=2`} alt="CCH" />
           </div>
@@ -464,6 +464,20 @@ export default function ReceiptEditor({
                 <strong>Reference</strong> {rc.Inbound_Reference_No}
               </span>
             </div>
+            {(rc.Linked_Document_Type != null || rc.Linked_Document_Number != null) && (
+              <div className="receipt-sheet-meta receipt-sheet-meta-extra">
+                {rc.Linked_Document_Type != null && (
+                  <span>
+                    <strong>Linked doc type</strong> {rc.Linked_Document_Type}
+                  </span>
+                )}
+                {rc.Linked_Document_Number != null && (
+                  <span>
+                    <strong>Linked doc no</strong> {rc.Linked_Document_Number}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <div className="receipt-sheet-header-user" title={currentUserDisplay !== "—" ? currentUserDisplay : undefined}>
             <span className="receipt-sheet-user-label">Current user</span>
@@ -493,10 +507,11 @@ export default function ReceiptEditor({
           </div>
         )}
 
-        <div className="receipt-table-wrap">
+        <div className="receipt-table-wrap" data-tour="receipt-table">
           <div className="receipt-table-controls">
             <label
               className={`receipt-hold-toggle${hasHoldCodeExtraInfo ? "" : " receipt-hold-toggle--disabled"}`}
+              data-tour="hold-code-toggle"
               title={
                 hasHoldCodeExtraInfo
                   ? "Split rows by hold code for review. Rates are read-only here; enter prices with this off."
@@ -529,7 +544,7 @@ export default function ReceiptEditor({
                 <th className="receipt-th receipt-th-num">Qty</th>
                 <th className="receipt-th receipt-th-num">Net weight (kg)</th>
                 <th className="receipt-th receipt-th-uom">UOM</th>
-                <th className="receipt-th receipt-th-rate">Rate (R/UOM)</th>
+                <th className="receipt-th receipt-th-rate" data-tour="receipt-rate-th">Rate (R/UOM)</th>
                 <th className="receipt-th receipt-th-price">Order price</th>
               </tr>
             </thead>
@@ -587,6 +602,7 @@ export default function ReceiptEditor({
             <button
               type="button"
               className={`receipt-btn receipt-btn-primary ${canPost ? "receipt-btn-primary-ready" : ""}`}
+              data-tour="post-btn"
               title={postButtonTitle}
               onClick={handlePost}
               disabled={posting || !canPost}

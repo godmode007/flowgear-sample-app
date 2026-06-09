@@ -1,5 +1,6 @@
 import { Flowgear } from "flowgear-webapp";
 import type {
+  CaptureState,
   ReceiptConfirmationPayload,
   ReceiptOrderListEntry,
 } from "../models/receiptConfirmation";
@@ -54,6 +55,9 @@ const RECEIPT_LOCK_PATH = "/v2/ReceiptNoPriceLock";
 /** Relative path for posting receipt confirmation to Procurement & Inbound (ERP). */
 const POST_PROCUREMENT_INBOUND_PATH = "/v2/ProcurementInbound";
 
+/** Relative path for saving price capture progress (Partial / ReadyToPost / Posted). */
+const PRICE_CAPTURE_STATUS_PATH = "/v2/PriceCaptureStatus";
+
 /** Max wait for Post to ERP (workflow can be slow). */
 const POST_TIMEOUT_MS = 120_000;
 
@@ -70,12 +74,6 @@ export function isEmbeddedInConsole(): boolean {
   if (typeof window === "undefined") return false;
   return window.self !== window.top;
 }
-
-/**
- * Optional: relative path for a workflow that returns a pending receipt payload to edit.
- * Add an HTTP binding (e.g. GET) in Flowgear and set this to match (e.g. "/api/receipt-confirmation/pending").
- */
-const GET_PENDING_RECEIPT_PATH: string | null = null;
 
 /**
  * Relative path for the workflow that returns the orders list (Result/Table XML with base64 Content per order).
@@ -172,12 +170,6 @@ export type PostToErpResult = {
   errorDetail?: string;
 };
 
-type ProcurementInboundPostBody = ReceiptConfirmationPayload;
-
-function buildProcurementInboundPostBody(payload: ReceiptConfirmationPayload): ProcurementInboundPostBody {
-  return payload;
-}
-
 function extractWorkflowErrorMessage(data: Record<string, unknown>, bodyStr: string | undefined): string | undefined {
   const stringCandidates: unknown[] = [
     data.FgResponseBody,
@@ -218,7 +210,7 @@ export async function postToErp(
   onStatus?: PostToErpStatusCallback
 ): Promise<PostToErpResult> {
   const log = (msg: string) => onStatus?.(msg);
-  const requestBody = buildProcurementInboundPostBody(payload);
+  const requestBody = payload;
 
   if (isStandaloneMode()) {
     const apiUrl = STANDALONE_API_URL.replace(/\/$/, "");
@@ -387,35 +379,8 @@ export async function postToErp(
   };
 }
 
-export async function getPendingReceipt(): Promise<ReceiptConfirmationPayload | null> {
-  if (GET_PENDING_RECEIPT_PATH == null || GET_PENDING_RECEIPT_PATH === "") {
-    return null;
-  }
-  try {
-    const response = await Flowgear.Sdk.invoke("GET", GET_PENDING_RECEIPT_PATH);
-    const body = (response as { FgResponseBody?: string })?.FgResponseBody;
-    if (body == null) return null;
-    const parsed = safeParseJson(body) as ReceiptConfirmationPayload | null;
-    return parsed?.Receipt_Confirmation != null ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
 /** Base path for the default orders-list workflow (before query string). */
 export const ORDERS_LIST_PATH = DEFAULT_ORDERS_LIST_PATH;
-
-/**
- * @deprecated Locking uses each list row's `recordId` (support table XML `Id`) as `DashboardId` in
- * POST `/v2/ReceiptNoPriceLock`. This env is unused by the app.
- */
-export function getReceiptLockDashboardId(): string {
-  const v =
-    typeof import.meta !== "undefined"
-      ? ((import.meta as ImportMeta).env as Record<string, string | undefined>).VITE_RECEIPT_LOCK_DASHBOARD_ID
-      : undefined;
-  return (v ?? "").trim();
-}
 
 /** In-memory username from last `resolveReceiptLockUsernameForRequest` (Flowgear `getContext`). */
 let receiptLockIdentityCache = "";
@@ -547,6 +512,105 @@ export async function setReceiptNoPriceLock(params: {
   const dashboardId = params.dashboardId.trim();
   if (dashboardId.length === 0) return;
   await Flowgear.Sdk.invoke("POST", receiptNoPriceLockInvokePath(dashboardId, params.username));
+}
+
+/**
+ * Slim representation of captured rates — only what is needed to rehydrate the editor.
+ * Sending the full Receipt_Confirmation payload would exceed DB column limits.
+ * The Flowgear workflow stores this as PricePayload and returns it in the list.
+ */
+type SlimPricePayload = {
+  /** Schema version — bump if the shape changes. */
+  v: 1;
+  /** Line_No → Order_Price (null = not yet entered). */
+  rates: Record<string, number | null>;
+};
+
+function buildSlimPricePayload(payload: ReceiptConfirmationPayload): SlimPricePayload {
+  const rates: Record<string, number | null> = {};
+  const items = Array.isArray(payload.Receipt_Confirmation?.Items)
+    ? payload.Receipt_Confirmation.Items
+    : [];
+  for (const item of items) {
+    rates[String(item.Line_No)] = item.Order_Price ?? null;
+  }
+  return { v: 1, rates };
+}
+
+/**
+ * Merges saved rates back into a full payload on reopen.
+ * Flowgear stores/returns the slim payload as plain JSON (the workflow handles
+ * any encoding — we receive it as a JSON string in the PricePayload column).
+ * Tries plain JSON parse first; falls back to base64-decode for legacy records.
+ */
+export function applySlimPricePayload(
+  fullPayload: ReceiptConfirmationPayload,
+  pricePayloadRaw: string
+): ReceiptConfirmationPayload {
+  try {
+    // Strip wrapping quotes Flowgear may add (e.g. `"eyJ..."` → `eyJ...`)
+    const stripped = pricePayloadRaw.trim().replace(/^"|"$/g, "");
+
+    // Try plain JSON first (new format — sent as JSON object body)
+    let slim: Partial<SlimPricePayload> | null = null;
+    try {
+      const parsed = JSON.parse(stripped) as unknown;
+      if (parsed != null && typeof parsed === "object") {
+        slim = parsed as Partial<SlimPricePayload>;
+      }
+    } catch { /* not plain JSON — try base64 below */ }
+
+    // Fall back: base64-encoded JSON (legacy or Flowgear re-encoded)
+    if (slim == null) {
+      try {
+        slim = JSON.parse(atob(stripped)) as Partial<SlimPricePayload>;
+      } catch { return fullPayload; }
+    }
+
+    if (slim.v !== 1 || typeof slim.rates !== "object" || slim.rates == null) {
+      return fullPayload;
+    }
+
+    return {
+      ...fullPayload,
+      Receipt_Confirmation: {
+        ...fullPayload.Receipt_Confirmation,
+        Items: (Array.isArray(fullPayload.Receipt_Confirmation?.Items)
+          ? fullPayload.Receipt_Confirmation.Items
+          : []
+        ).map((item) => {
+          const savedRate = slim!.rates![String(item.Line_No)];
+          return savedRate !== undefined ? { ...item, Order_Price: savedRate } : item;
+        }),
+      },
+    };
+  } catch {
+    return fullPayload;
+  }
+}
+
+/**
+ * Persists price capture progress to the Flowgear PriceCaptureStatus workflow.
+ * DashboardId, LastEditedBy, CaptureState are passed as query params.
+ * Only a slim rate map (Line_No → Order_Price) is sent as the body — not the full payload —
+ * to avoid exceeding DB column limits. Ensure PricePayload column is NVARCHAR(MAX).
+ * Fire-and-forget — caller should not await if non-blocking is desired.
+ */
+export async function setPriceCaptureStatus(params: {
+  dashboardId: string;
+  username: string;
+  captureState: CaptureState;
+  pricedPayload: ReceiptConfirmationPayload;
+}): Promise<void> {
+  const { dashboardId, username, captureState, pricedPayload } = params;
+  if (!dashboardId.trim()) return;
+  const qs = new URLSearchParams({
+    DashboardId: dashboardId.trim(),
+    LastEditedBy: username.trim(),
+    CaptureState: captureState,
+  });
+  const slim = buildSlimPricePayload(pricedPayload);
+  await Flowgear.Sdk.invoke("POST", `${PRICE_CAPTURE_STATUS_PATH}?${qs.toString()}`, slim);
 }
 
 export async function getOrdersList(

@@ -1,0 +1,8 @@
+# CCH Price Capture Tool — workspace scope
+
+This folder is **`flowgear-sample-app`** — the **CCH Price Capture Tool** (`ReceiptConfirmationApp`).
+
+- Do **not** edit, run, or open **`flowgear-support-dashboard`** (Support Dashboard) unless the user explicitly asks.
+- Sibling apps under `C:\Projects\CCH FlowGear App\` share the same Flowgear tenant/site but are separate codebases.
+- Local dev for this app uses **`FG_DEV_PORT=3001`** in `.env.local` (Support Dashboard uses 3000).
+- Orders list API: **GET `/v2/ReceiptNoPrice`** — not SupportIntegrationList.

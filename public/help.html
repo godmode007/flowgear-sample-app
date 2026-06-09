@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Receipt Confirmation – User Guide</title>
+  <style>
+    :root {
+      --blue: #00298B;
+      --blue-dark: #001f6b;
+      --blue-light: #80CEEF;
+      --blue-bg: #d4eef9;
+      --accent: #e8f0fe;
+      --text: #212529;
+      --muted: #6c757d;
+      --border: #dee2e6;
+      --surface: #f8f9fa;
+      --white: #ffffff;
+      --green: #198754;
+      --orange: #fd7e14;
+      --red: #dc3545;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f0f4f8;
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /* ── Page header ── */
+    .page-header {
+      background: var(--blue);
+      color: #fff;
+      padding: 28px 40px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .page-header h1 { font-size: 22px; font-weight: 700; }
+    .page-header p  { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+    .header-badge {
+      background: rgba(255,255,255,0.15);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* ── Main layout ── */
+    .page-body {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 36px 24px 60px;
+    }
+
+    /* ── Section titles ── */
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--blue);
+      border-bottom: 2px solid var(--blue);
+      padding-bottom: 6px;
+      margin: 40px 0 20px;
+    }
+    .section-title:first-child { margin-top: 0; }
+
+    /* ── Intro card ── */
+    .intro-card {
+      background: var(--white);
+      border-radius: 10px;
+      border-left: 4px solid var(--blue);
+      padding: 20px 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+      margin-bottom: 32px;
+    }
+    .intro-card p + p { margin-top: 10px; }
+
+    /* ── Interactive annotated diagram ── */
+    .diagram-wrap {
+      position: relative;
+      background: var(--white);
+      border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+      overflow: visible;
+      margin-bottom: 40px;
+    }
+
+    .diagram-ui {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      grid-template-rows: auto auto 1fr;
+      gap: 0;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      min-height: 520px;
+    }
+
+    /* Navbar */
+    .ui-navbar {
+      grid-column: 1 / -1;
+      background: var(--blue);
+      color: #fff;
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .ui-help-btn {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.5);
+      color: #fff; font-weight: 700; font-size: 12px;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* Filters bar */
+    .ui-filters {
+      grid-column: 2 / -1;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 14px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    .ui-filter-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 3px 10px;
+      font-size: 11px;
+    }
+    .ui-btn-refresh {
+      background: var(--blue);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    /* Orders list */
+    .ui-orders {
+      grid-row: 2 / 4;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 0;
+      overflow: hidden;
+    }
+    .ui-orders-header {
+      background: var(--blue);
+      color: #fff;
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex; gap: 8px; align-items: center;
+    }
+    .ui-orders-cols {
+      display: grid;
+      grid-template-columns: 50px 1fr 38px;
+      padding: 6px 12px;
+      font-size: 10px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .ui-order-row {
+      display: grid;
+      grid-template-columns: 50px 1fr 38px;
+      padding: 8px 12px;
+      font-size: 11px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .ui-order-row:hover { background: #e9ecef; }
+    .ui-order-row.selected { background: var(--blue-bg); border-left: 3px solid var(--blue); }
+    .ui-order-label { font-weight: 600; font-size: 11px; color: #212529; }
+    .ui-order-sub { font-size: 10px; color: var(--muted); }
+    .ui-order-user { font-size: 10px; color: var(--blue-dark); text-align: right; }
+
+    /* Receipt editor */
+    .ui-receipt {
+      padding: 14px 16px;
+      overflow: hidden;
+    }
+    .ui-receipt-header {
+      background: var(--blue);
+      color: #fff;
+      border-radius: 6px 6px 0 0;
+      padding: 10px 14px;
+      margin-bottom: 0;
+    }
+    .ui-receipt-title { font-size: 13px; font-weight: 700; }
+    .ui-receipt-meta {
+      display: flex; flex-wrap: wrap; gap: 8px 16px;
+      font-size: 11px; margin-top: 6px; opacity: 0.88;
+    }
+    .ui-receipt-meta strong { opacity: 1; }
+    .ui-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-top: none;
+    }
+    .ui-table th {
+      background: #e9ecef;
+      font-weight: 700;
+      padding: 5px 8px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .ui-table th.rate-col { background: #fff3cd; color: #856404; }
+    .ui-table td {
+      padding: 5px 8px;
+      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+    }
+    .ui-rate-input {
+      width: 70px; border: 2px solid var(--blue); border-radius: 3px;
+      font-size: 11px; padding: 2px 5px; text-align: right;
+    }
+    .ui-post-btn {
+      background: var(--blue);
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      padding: 8px 20px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-top: 12px;
+      cursor: pointer;
+    }
+
+    /* ── Annotation hotspots ── */
+    .hotspot {
+      position: absolute;
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      background: #ff4f00;
+      color: #fff;
+      font-weight: 800;
+      font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      z-index: 10;
+      transition: transform 0.15s, box-shadow 0.15s;
+      user-select: none;
+      border: 2px solid #fff;
+    }
+    .hotspot:hover, .hotspot.active {
+      transform: scale(1.2);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .hotspot.active { background: var(--blue); }
+
+    /* ── Annotation panel ── */
+    .annotation-panel {
+      margin-top: 20px;
+      background: var(--white);
+      border-radius: 8px;
+      border-left: 4px solid var(--blue);
+      padding: 18px 22px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+      min-height: 90px;
+      transition: opacity 0.2s;
+    }
+    .annotation-panel h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--blue);
+      margin-bottom: 8px;
+    }
+    .annotation-panel p { color: #495057; }
+    .annotation-nav {
+      display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap;
+    }
+    .ann-btn {
+      padding: 5px 14px; border-radius: 4px; font-size: 13px;
+      font-weight: 600; cursor: pointer; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text);
+      transition: background 0.1s;
+    }
+    .ann-btn:hover { background: var(--blue-bg); }
+    .ann-btn.primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .ann-btn.primary:hover { background: var(--blue-dark); }
+
+    /* ── Reference cards ── */
+    .ref-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .ref-card {
+      background: var(--white);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      padding: 18px 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .ref-card h3 {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--blue);
+      margin-bottom: 10px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .ref-icon {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: var(--blue); color: #fff;
+      font-size: 13px; font-weight: 800;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .ref-card ul { list-style: none; }
+    .ref-card ul li {
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      display: flex; align-items: flex-start; gap: 8px;
+    }
+    .ref-card ul li:last-child { border-bottom: none; }
+    .ref-card ul li::before { content: "→"; color: var(--blue); flex-shrink: 0; }
+
+    /* ── Workflow steps ── */
+    .workflow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0;
+      margin-bottom: 32px;
+      background: var(--white);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .wf-step {
+      flex: 1;
+      min-width: 160px;
+      padding: 18px 16px;
+      position: relative;
+      border-right: 1px solid var(--border);
+    }
+    .wf-step:last-child { border-right: none; }
+    .wf-num {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: var(--blue); color: #fff;
+      font-size: 14px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 10px;
+    }
+    .wf-step h4 { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+    .wf-step p  { font-size: 12px; color: var(--muted); }
+    .wf-arrow {
+      position: absolute;
+      right: -14px; top: 50%;
+      transform: translateY(-50%);
+      font-size: 20px;
+      color: var(--blue);
+      z-index: 2;
+    }
+
+    /* ── Tips ── */
+    .tips-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
+      margin-bottom: 32px;
+    }
+    .tip-card {
+      background: var(--white);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      padding: 16px 18px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .tip-icon { font-size: 22px; flex-shrink: 0; }
+    .tip-card h4 { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+    .tip-card p  { font-size: 13px; color: var(--muted); }
+
+    /* ── Formula callout ── */
+    .formula-box {
+      background: var(--accent);
+      border: 1px solid var(--blue-light);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 16px 0;
+      font-family: "Courier New", monospace;
+      font-size: 13px;
+    }
+    .formula-box .formula-label {
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--blue);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .formula-row { margin: 4px 0; }
+
+    /* ── Lock status ── */
+    .lock-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+    .lock-table th {
+      background: var(--blue);
+      color: #fff;
+      padding: 8px 14px;
+      text-align: left;
+    }
+    .lock-table td {
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .lock-table tr:nth-child(even) td { background: var(--surface); }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px; border-radius: 12px;
+      font-size: 11px; font-weight: 700;
+    }
+    .badge-green  { background: #d1e7dd; color: #0a3622; }
+    .badge-orange { background: #fff3cd; color: #664d03; }
+    .badge-red    { background: #f8d7da; color: #58151c; }
+
+    /* ── Footer ── */
+    .page-footer {
+      background: var(--blue);
+      color: rgba(255,255,255,0.7);
+      text-align: center;
+      padding: 16px;
+      font-size: 12px;
+      margin-top: 40px;
+    }
+    .page-footer a { color: var(--blue-light); }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════
+     Page Header
+════════════════════════════════════════════════════ -->
+<div class="page-header">
+  <button onclick="history.back()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:#fff;border-radius:5px;padding:5px 14px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;" title="Back to app">← Back</button>
+  <div>
+    <h1>Receipt Confirmation — User Guide</h1>
+    <p>CCH · Powered by Inhance &amp; Flowgear</p>
+  </div>
+  <div class="header-badge">Pricing &amp; Warehouse Staff</div>
+</div>
+
+<div class="page-body">
+
+  <!-- Intro -->
+  <div class="intro-card">
+    <p>This app receives inbound receipt confirmations from the Flowgear workflow, lets you <strong>enter the price per unit (Rate)</strong> for each stock line, and then <strong>posts the completed receipt to the ERP</strong>. It must be opened from inside the <strong>Flowgear Console</strong> — if you see an orange warning banner, contact your administrator.</p>
+    <p>Click any numbered circle <span style="display:inline-flex;width:20px;height:20px;border-radius:50%;background:#ff4f00;color:#fff;font-weight:800;font-size:11px;align-items:center;justify-content:center;vertical-align:middle;">1</span> on the diagram below to learn about that part of the screen.</p>
+  </div>
+
+  <!-- ══ DIAGRAM ══ -->
+  <h2 class="section-title">Screen Layout</h2>
+
+  <div class="diagram-wrap" id="diagram">
+
+    <!-- Mock UI -->
+    <div class="diagram-ui" id="diagram-ui">
+
+      <!-- Navbar -->
+      <div class="ui-navbar" id="hs-area-navbar">
+        <span>Receipt confirmation – edit Order Price then Post to ERP</span>
+        <div class="ui-help-btn">?</div>
+      </div>
+
+      <!-- Filters bar -->
+      <div class="ui-filters" id="hs-area-filters">
+        <span style="font-size:11px;font-weight:700;color:#00298B;margin-right:4px;">Search orders</span>
+        <div class="ui-filter-chip">Current user ▾</div>
+        <div class="ui-filter-chip">Company…</div>
+        <div class="ui-filter-chip">Probill…</div>
+        <div class="ui-filter-chip">Receipt no…</div>
+        <div class="ui-filter-chip">From date</div>
+        <div class="ui-filter-chip">To date</div>
+        <button class="ui-btn-refresh" id="hs-area-refresh">Refresh list</button>
+      </div>
+
+      <!-- Orders list -->
+      <div class="ui-orders" id="hs-area-orders">
+        <div class="ui-orders-header">
+          Orders <span style="background:rgba(255,255,255,0.2);border-radius:10px;padding:1px 8px;font-size:11px;">3</span>
+        </div>
+        <div class="ui-orders-cols">
+          <div>Date ▲</div>
+          <div>Order</div>
+          <div id="hs-area-user">User</div>
+        </div>
+        <div class="ui-order-row selected">
+          <div>12 May</div>
+          <div><div class="ui-order-label">RCV-001 · Supplier A</div><div class="ui-order-sub">CCH · 3 lines · PB-991</div></div>
+          <div class="ui-order-user" style="color:#00298B;font-weight:600;">jsmith</div>
+        </div>
+        <div class="ui-order-row">
+          <div>15 May</div>
+          <div><div class="ui-order-label">RCV-002 · Supplier B</div><div class="ui-order-sub">CCH · 1 line · PB-992</div></div>
+          <div class="ui-order-user">—</div>
+        </div>
+        <div class="ui-order-row">
+          <div>20 May</div>
+          <div><div class="ui-order-label">RCV-003 · Supplier C</div><div class="ui-order-sub">CCH · 5 lines · PB-993</div></div>
+          <div class="ui-order-user">mjones</div>
+        </div>
+      </div>
+
+      <!-- Receipt editor -->
+      <div class="ui-receipt" id="hs-area-editor">
+        <div id="hs-area-header">
+          <div class="ui-receipt-header">
+            <div class="ui-receipt-title">Receipt confirmation – Order price entry</div>
+            <div class="ui-receipt-meta">
+              <span><strong>Company</strong> CCH</span>
+              <span><strong>Receipt</strong> RCV-001</span>
+              <span><strong>Supplier</strong> Supplier A</span>
+              <span><strong>Order type</strong> Purchase Order</span>
+              <span><strong>Probill</strong> PB-991</span>
+              <span><strong>Reference</strong> REF-12345</span>
+            </div>
+          </div>
+          <div id="hs-area-table">
+            <table class="ui-table">
+              <thead>
+                <tr>
+                  <th>Line</th>
+                  <th>Item code</th>
+                  <th>Description</th>
+                  <th>Pack / Lot</th>
+                  <th>Qty</th>
+                  <th>Net wt (kg)</th>
+                  <th>UOM</th>
+                  <th class="rate-col" id="hs-area-rate">Rate (R/UOM) ★</th>
+                  <th>Order price</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>10</td><td>ITEM-001</td><td>Frozen chicken fillets</td><td>10kg / L2024</td>
+                  <td>20</td><td>200.00</td><td>KG</td>
+                  <td><input class="ui-rate-input" value="32.50" readonly /></td>
+                  <td>6 500.00</td>
+                </tr>
+                <tr>
+                  <td>20</td><td>ITEM-002</td><td>Chicken wings bulk</td><td>5kg / L2025</td>
+                  <td>10</td><td>50.00</td><td>KG</td>
+                  <td><input class="ui-rate-input" value="" placeholder="Enter…" readonly /></td>
+                  <td>—</td>
+                </tr>
+                <tr>
+                  <td>30</td><td>ITEM-003</td><td>Packaging box</td><td>1 / —</td>
+                  <td>50</td><td>5.00</td><td>EA</td>
+                  <td><input class="ui-rate-input" value="" placeholder="Enter…" readonly /></td>
+                  <td>—</td>
+                </tr>
+                <tr style="font-weight:700;background:#f8f9fa;">
+                  <td colspan="4" style="text-align:right;">Total</td>
+                  <td>80</td><td>255.00</td><td>—</td><td>—</td><td>6 500.00</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:10px;align-items:center;" id="hs-area-post">
+          <button class="ui-post-btn">Post to ERP</button>
+          <button style="background:#6c757d;color:#fff;border:none;border-radius:5px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;">Refresh</button>
+        </div>
+      </div>
+
+    </div><!-- /diagram-ui -->
+
+    <!-- ── Hotspot annotations ── -->
+    <!-- Positions are % of the diagram-ui bounding box, set via JS -->
+  </div><!-- /diagram-wrap -->
+
+  <!-- Annotation panel -->
+  <div class="annotation-panel" id="annotation-panel">
+    <h3 id="ann-title">Click a numbered circle on the diagram to learn about that area</h3>
+    <p id="ann-body">Each section of the app has a purpose — hover or click the orange circles to read about it, or use the buttons below to step through them all.</p>
+    <div class="annotation-nav">
+      <button class="ann-btn" id="ann-prev" onclick="stepAnnotation(-1)">← Previous</button>
+      <button class="ann-btn primary" id="ann-next" onclick="stepAnnotation(1)">Next →</button>
+    </div>
+  </div>
+
+  <!-- ══ WORKFLOW ══ -->
+  <h2 class="section-title">Step-by-step Workflow</h2>
+
+  <div class="workflow">
+    <div class="wf-step">
+      <div class="wf-num">1</div>
+      <h4>Refresh List</h4>
+      <p>Click <em>Refresh list</em> to pull the latest pending receipts from Flowgear. Amber rows have been edited (rates saved, not yet posted); green rows are fully priced and ready to post.</p>
+      <span class="wf-arrow">›</span>
+    </div>
+    <div class="wf-step">
+      <div class="wf-num">2</div>
+      <h4>Select a Receipt</h4>
+      <p>Click a row to open it. If it was previously partially priced, your saved rates will reload automatically.</p>
+      <span class="wf-arrow">›</span>
+    </div>
+    <div class="wf-step">
+      <div class="wf-num">3</div>
+      <h4>Enter Rates</h4>
+      <p>Type the Rate (R/UOM) for every line. The Order Price calculates automatically. You can navigate away at any time — your progress is saved.</p>
+      <span class="wf-arrow">›</span>
+    </div>
+    <div class="wf-step">
+      <div class="wf-num">4</div>
+      <h4>Post to ERP</h4>
+      <p>Click <em>Post to ERP</em>, type <strong>Y</strong> to confirm. The receipt is sent to the ERP and removed from the list.</p>
+      <span class="wf-arrow">›</span>
+    </div>
+    <div class="wf-step">
+      <div class="wf-num">5</div>
+      <h4>Repeat</h4>
+      <p>Click <em>OK — load next receipt</em> or Refresh to move on to the next order.</p>
+    </div>
+  </div>
+
+  <!-- ══ FIELD REFERENCE ══ -->
+  <h2 class="section-title">Field Reference</h2>
+
+  <div class="ref-grid">
+
+    <div class="ref-card">
+      <h3><span class="ref-icon">H</span>Receipt Header Fields</h3>
+      <ul>
+        <li><strong>Company</strong> — The CCH legal entity for this receipt.</li>
+        <li><strong>Receipt No.</strong> — Unique inbound receipt identifier.</li>
+        <li><strong>Supplier</strong> — The vendor delivering the goods.</li>
+        <li><strong>Order type</strong> — e.g. Purchase Order, Return.</li>
+        <li><strong>Probill</strong> — The carrier's freight bill number.</li>
+        <li><strong>Reference</strong> — Additional cross-reference number.</li>
+      </ul>
+    </div>
+
+    <div class="ref-card">
+      <h3><span class="ref-icon">L</span>Line Item Fields</h3>
+      <ul>
+        <li><strong>Line</strong> — ERP line number (read-only).</li>
+        <li><strong>Item code</strong> — Stock-keeping unit identifier.</li>
+        <li><strong>Description</strong> — Item name from the ERP.</li>
+        <li><strong>Pack Size / Lot</strong> — Pack configuration and lot / batch number.</li>
+        <li><strong>Qty</strong> — Quantity received (units).</li>
+        <li><strong>Net weight (kg)</strong> — Total net weight received.</li>
+        <li><strong>UOM</strong> — Unit of measure: <em>KG</em> or other (e.g. EA, CTN).</li>
+        <li><strong>Rate (R/UOM)</strong> — ★ Price per unit. You enter this.</li>
+        <li><strong>Order price</strong> — Calculated automatically (see formula below).</li>
+      </ul>
+    </div>
+
+    <div class="ref-card">
+      <h3><span class="ref-icon">F</span>Order Price Formula</h3>
+      <div class="formula-box">
+        <div class="formula-label">When UOM = KG</div>
+        <div class="formula-row">Order Price = Net weight × Rate</div>
+      </div>
+      <div class="formula-box">
+        <div class="formula-label">All other UOMs (EA, CTN, etc.)</div>
+        <div class="formula-row">Order Price = Quantity × Rate</div>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-top:10px;">Lines with UOM = KG are priced by weight. Everything else is priced by quantity.</p>
+    </div>
+
+    <div class="ref-card">
+      <h3><span class="ref-icon">S</span>Filter &amp; Search</h3>
+      <ul>
+        <li><strong>Current user</strong> — Multi-select to show only orders locked to specific users.</li>
+        <li><strong>Company</strong> — Partial text match on company name.</li>
+        <li><strong>Probill</strong> — Partial match on probill number.</li>
+        <li><strong>Receipt no.</strong> — Partial match on receipt number.</li>
+        <li><strong>From / To date</strong> — Shorten the list to a date range. <em>All records are always loaded from Flowgear on Refresh</em> — the date filter only hides rows outside the range without reloading data.</li>
+        <li><strong>Refresh list</strong> — Reload all records from Flowgear (filters do not affect what is fetched).</li>
+        <li><strong>Clear filters</strong> — Reset all filters (appears when filters are active).</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <!-- ══ CAPTURE STATE ══ -->
+  <h2 class="section-title">Order Capture State</h2>
+
+  <p style="margin-bottom:16px;">Each order row is colour-coded to show its pricing progress. Your rates are automatically saved when you navigate away, so you can work across multiple receipts without losing data.</p>
+
+  <table class="lock-table">
+    <thead>
+      <tr>
+        <th>Colour</th>
+        <th>State</th>
+        <th>Meaning</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#e9ecef;border:1px solid #ced4da;"></span> White / grey</td>
+        <td>Unpriced</td>
+        <td>No rates have been entered yet.</td>
+      </tr>
+      <tr>
+        <td><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#FFFBEB;border:2px solid #F59E0B;"></span> Amber</td>
+        <td><strong>Edited</strong></td>
+        <td>Rates have been saved but the receipt has not yet been posted. The name of the last person to edit it appears directly below the badge. Previously entered rates reload automatically when you reopen the order.</td>
+      </tr>
+      <tr>
+        <td><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#F0FDF4;border:2px solid #10B981;"></span> Green</td>
+        <td><strong>Ready to Post</strong></td>
+        <td>All lines have rates. The receipt can be posted to the ERP immediately.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p style="margin-top:12px;font-size:13px;color:var(--muted);">The lock is released automatically when you navigate to a different order — you never need to manually unlock a record.</p>
+
+  <!-- ══ LOCKING ══ -->
+  <h2 class="section-title">Receipt Locking</h2>
+
+  <p style="margin-bottom:16px;">To prevent two users editing the same receipt at the same time, the app uses an automatic locking system. You do not need to manually lock anything — it happens when you start editing a rate. The lock is released as soon as you click a different order in the list.</p>
+
+  <table class="lock-table">
+    <thead>
+      <tr>
+        <th>Situation</th>
+        <th>What you see</th>
+        <th>What to do</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>No lock holder</td>
+        <td><span class="badge badge-green">— (dash)</span> in Current user column</td>
+        <td>Receipt is free — open and edit normally.</td>
+      </tr>
+      <tr>
+        <td>You hold the lock</td>
+        <td>Your username shown in Current user column</td>
+        <td>Edit rates and post as normal.</td>
+      </tr>
+      <tr>
+        <td>Another user holds the lock</td>
+        <td><span class="badge badge-orange">Yellow banner</span> + their name in the column</td>
+        <td>Wait for them to finish and release the lock, then click Refresh.</td>
+      </tr>
+      <tr>
+        <td>Another browser tab has this receipt open</td>
+        <td><span class="badge badge-orange">Yellow banner</span> "Another browser tab…"</td>
+        <td>Close the other tab. The lock releases automatically within ~2 minutes.</td>
+      </tr>
+      <tr>
+        <td>Your session expired</td>
+        <td><span class="badge badge-red">Red banner</span> "Not signed in"</td>
+        <td>Sign back in to the Flowgear Console and click Refresh.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ══ TIPS ══ -->
+  <h2 class="section-title">Tips &amp; Common Questions</h2>
+
+  <div class="tips-grid">
+    <div class="tip-card">
+      <div class="tip-icon">💡</div>
+      <div>
+        <h4>Post button is greyed out</h4>
+        <p>Every line must have a Rate greater than 0 before posting is enabled. Check for any blank Rate fields.</p>
+      </div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">⚖️</div>
+      <div>
+        <h4>Hold Code details toggle</h4>
+        <p>The "Show Hold Code details" checkbox splits lines by hold code for <em>review only</em>. Turn it off to enter rates — you cannot edit rates in hold code view.</p>
+      </div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">📋</div>
+      <div>
+        <h4>Averaged rates (★ asterisk)</h4>
+        <p>When grouped lines have different rates, the displayed rate is an average (marked ★). Click into the field to set a single rate across the group.</p>
+      </div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">🔄</div>
+      <div>
+        <h4>Receipt disappears after posting</h4>
+        <p>That's expected — a successfully posted receipt is removed from the pending list. Click "OK — load next receipt" or Refresh to continue.</p>
+      </div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">📅</div>
+      <div>
+        <h4>Date sort</h4>
+        <p>Click the Date column header in the Orders list to toggle between oldest-first (▲) and newest-first (▼). Your preference is remembered between sessions.</p>
+      </div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">◀</div>
+      <div>
+        <h4>Collapsing the Orders list</h4>
+        <p>Click the ‹ / › toggle between the Orders list and the editor to hide the list and give the receipt editor more space.</p>
+      </div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">🔎</div>
+      <div>
+        <h4>Target &amp; Source payload buttons</h4>
+        <p>At the bottom of the editor, "View target payload" and "View source payload" show the raw JSON sent to and received from Flowgear. Useful for troubleshooting with your administrator.</p>
+      </div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">❓</div>
+      <div>
+        <h4>Reopening this tour in the app</h4>
+        <p>Click the <strong>?</strong> button in the top navigation bar of the app at any time to restart the interactive tour.</p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page-body -->
+
+<div class="page-footer">
+  Receipt Confirmation User Guide &nbsp;·&nbsp; CCH &nbsp;·&nbsp; Powered by <strong>Inhance</strong> &amp; <strong>Flowgear</strong>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     Hotspot + Annotation JS
+════════════════════════════════════════════════════ -->
+<script>
+  const annotations = [
+    {
+      id: 'navbar',
+      areaId: 'ui-navbar',
+      label: '1',
+      title: '① Navigation Bar',
+      body: 'The top bar shows the app name and contains a <strong>?</strong> help button that reopens the interactive tour at any time. When the app is not opened from the Flowgear Console, an orange warning banner appears below this bar.',
+      offsetX: 0.92, offsetY: 0.02,
+    },
+    {
+      id: 'orders',
+      areaId: 'hs-area-orders',
+      label: '2',
+      title: '② Orders List',
+      body: 'Lists all pending receipt confirmations loaded from Flowgear. Each row shows the date, reference/receipt number, supplier, company, line count, and probill. <strong>Click any row</strong> to open it in the editor. The highlighted row is the currently selected receipt.',
+      offsetX: 0.5, offsetY: 0.12,
+    },
+    {
+      id: 'date-sort',
+      areaId: 'hs-area-orders',
+      label: '3',
+      title: '③ Date Sort',
+      body: 'Click the <strong>Date ▲</strong> column header to toggle between oldest-first (▲) and newest-first (▼). Your preference is saved automatically and remembered the next time you open the app.',
+      offsetX: 0.18, offsetY: 0.19,
+    },
+    {
+      id: 'current-user',
+      areaId: 'hs-area-user',
+      label: '4',
+      title: '④ Current User (Lock Indicator)',
+      body: 'Shows who currently holds the edit lock on each receipt. If another user\'s name appears here, that receipt is <strong>locked</strong> — rates and posting will be blocked until they release it or the lock expires (about 2 minutes of inactivity).',
+      offsetX: 0.93, offsetY: 0.19,
+    },
+    {
+      id: 'filters',
+      areaId: 'hs-area-filters',
+      label: '5',
+      title: '⑤ Search & Filter Bar',
+      body: 'Filter the orders list in real time. Type in <strong>Company</strong>, <strong>Probill</strong>, or <strong>Receipt no.</strong> to narrow results, or pick a date range. Use the <strong>Current user</strong> multi-select to see only receipts locked to your username. Click <strong>Clear filters</strong> to reset.<br><br><strong>Important:</strong> all records are always loaded from Flowgear when you click Refresh — filters (including the date range) only shorten what is visible in the list. They do not change what is fetched.',
+      offsetX: 0.62, offsetY: 0.06,
+    },
+    {
+      id: 'refresh',
+      areaId: 'hs-area-refresh',
+      label: '6',
+      title: '⑥ Refresh List',
+      body: '<strong>Always click Refresh list at the start of your session.</strong> This calls the Flowgear workflow and loads the latest pending receipts. If you expect a new receipt but don\'t see it, click Refresh again.',
+      offsetX: 0.92, offsetY: 0.06,
+    },
+    {
+      id: 'header',
+      areaId: 'hs-area-header',
+      label: '7',
+      title: '⑦ Receipt Header',
+      body: 'Displays the key identifiers for the selected receipt: <strong>Company, Receipt number, Supplier, Order type, Probill</strong>, and <strong>Reference number</strong>. These fields come from Flowgear and are read-only — you cannot change them here.',
+      offsetX: 0.5, offsetY: 0.30,
+    },
+    {
+      id: 'table',
+      areaId: 'hs-area-table',
+      label: '8',
+      title: '⑧ Receipt Line Items Table',
+      body: 'Each row is a stock item on this receipt. Lines with the same Item code and lot are grouped together automatically. The table shows <strong>Item code, Description, Pack Size/Lot, Quantity, Net weight (kg), and UOM</strong>. You enter the Rate for each line here.',
+      offsetX: 0.5, offsetY: 0.53,
+    },
+    {
+      id: 'rate',
+      areaId: 'hs-area-rate',
+      label: '9',
+      title: '⑨ Rate (R/UOM) — The Key Field',
+      body: 'Enter the <strong>price per unit</strong> in this column for every line. The Order Price is calculated automatically: <br><br>• <strong>KG items:</strong> Order Price = Net weight × Rate<br>• <strong>All other UOMs:</strong> Order Price = Quantity × Rate<br><br>Every line must have a rate > 0 before you can post.',
+      offsetX: 0.82, offsetY: 0.53,
+    },
+    {
+      id: 'post',
+      areaId: 'hs-area-post',
+      label: '10',
+      title: '⑩ Post to ERP',
+      body: 'Once all lines have a valid rate, click <strong>Post to ERP</strong>. You\'ll be asked to type <strong>Y</strong> to confirm. The Flowgear workflow then submits the receipt to your ERP — this can take up to a minute. The button is disabled (greyed out) if any rates are missing or zero.',
+      offsetX: 0.2, offsetY: 0.78,
+    },
+  ];
+
+  let currentAnnotation = -1;
+
+  function getElementCenter(areaId) {
+    const el = document.getElementById(areaId);
+    const diagramUi = document.getElementById('diagram-ui');
+    if (!el || !diagramUi) return null;
+    const er = el.getBoundingClientRect();
+    const dr = diagramUi.getBoundingClientRect();
+    return {
+      cx: (er.left + er.right) / 2 - dr.left,
+      cy: (er.top + er.bottom) / 2 - dr.top,
+    };
+  }
+
+  function placeHotspots() {
+    // Remove existing hotspots
+    document.querySelectorAll('.hotspot').forEach(h => h.remove());
+
+    const diagramUi = document.getElementById('diagram-ui');
+    if (!diagramUi) return;
+    const dr = diagramUi.getBoundingClientRect();
+    const dw = dr.width;
+    const dh = dr.height;
+
+    annotations.forEach((ann, idx) => {
+      const el = document.getElementById(ann.areaId);
+      if (!el) return;
+      const er = el.getBoundingClientRect();
+
+      const x = (er.left - dr.left) + er.width * ann.offsetX;
+      const y = (er.top - dr.top) + er.height * ann.offsetY;
+
+      const hs = document.createElement('div');
+      hs.className = 'hotspot' + (currentAnnotation === idx ? ' active' : '');
+      hs.textContent = ann.label;
+      hs.title = ann.title;
+      hs.style.left = x + 'px';
+      hs.style.top = y + 'px';
+      hs.style.position = 'absolute';
+      hs.addEventListener('click', () => showAnnotation(idx));
+
+      // Append to diagram-wrap so position is relative to it
+      document.getElementById('diagram').appendChild(hs);
+    });
+  }
+
+  function showAnnotation(idx) {
+    currentAnnotation = idx;
+    const ann = annotations[idx];
+    document.getElementById('ann-title').textContent = ann.title;
+    document.getElementById('ann-body').innerHTML = ann.body;
+
+    // Update active state
+    document.querySelectorAll('.hotspot').forEach((h, i) => {
+      h.classList.toggle('active', i === idx);
+    });
+
+    document.getElementById('ann-prev').disabled = idx === 0;
+    document.getElementById('ann-next').textContent = idx === annotations.length - 1 ? 'Done ✓' : 'Next →';
+    document.getElementById('annotation-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function stepAnnotation(dir) {
+    const next = Math.max(0, Math.min(annotations.length - 1, currentAnnotation + dir));
+    showAnnotation(next);
+  }
+
+  // Initial placement + re-place on resize
+  window.addEventListener('load', () => {
+    placeHotspots();
+    // Start on first annotation
+    showAnnotation(0);
+  });
+  window.addEventListener('resize', placeHotspots);
+</script>
+
+</body>
+</html>

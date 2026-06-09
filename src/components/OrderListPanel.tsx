@@ -52,10 +52,10 @@ export default function OrderListPanel({
   onListDateSortToggle,
 }: OrderListPanelProps) {
   return (
-    <div className="receipt-orders-panel" id="receipt-orders-panel">
+    <div className="receipt-orders-panel" id="receipt-orders-panel" data-tour="orders-panel">
       <div className="receipt-orders-panel-header">
         <span className="receipt-orders-panel-title">Orders</span>
-        <span className="receipt-orders-panel-badge" title="Rows returned from workflow">
+        <span className="receipt-orders-panel-badge" data-tour="orders-count" title="Rows returned from workflow">
           <span className="receipt-orders-panel-badge-count">{orders.length}</span>
           {orders.length !== totalLoadedCount ? (
             <span className="receipt-orders-panel-badge-total"> / {totalLoadedCount}</span>
@@ -74,6 +74,7 @@ export default function OrderListPanel({
           <button
             type="button"
             className="receipt-orders-list-head-date"
+            data-tour="orders-date-sort"
             onClick={() => onListDateSortToggle?.()}
             aria-sort={listDateSortDesc ? "descending" : "ascending"}
             title={
@@ -88,7 +89,7 @@ export default function OrderListPanel({
             </span>
           </button>
           <span className="receipt-orders-list-head-mid">Order</span>
-          <span>Current user</span>
+          <span data-tour="orders-current-user">Current user</span>
         </div>
       ) : null}
       <ul className="receipt-orders-list" role="listbox" aria-label="Orders">
@@ -109,12 +110,25 @@ export default function OrderListPanel({
           const fromOverride = (lockUserOverrideByRecordId[rid] ?? "").trim();
           const displayUser = fromList || fromOverride || "—";
           const dateCell = orderListDateCell(order);
+          const captureState = order.captureState ?? null;
+          const lastEditedBy = (order.lastEditedBy ?? "").trim();
+          const captureClass =
+            captureState === "Edited" ? " receipt-orders-item-edited"
+            : captureState === "ReadyToPost" ? " receipt-orders-item-ready"
+            : "";
+          const captureTitle =
+            captureState === "Edited"
+              ? `In progress${lastEditedBy ? ` — last edited by ${lastEditedBy}` : ""}`
+              : captureState === "ReadyToPost"
+              ? `Ready to post${lastEditedBy ? ` — priced by ${lastEditedBy}` : ""}`
+              : undefined;
           return (
             <li
               key={rid}
-              className={`receipt-orders-item ${selectedIndex === index ? "receipt-orders-item-selected" : ""}`}
+              className={`receipt-orders-item${selectedIndex === index ? " receipt-orders-item-selected" : ""}${captureClass}`}
               role="option"
               aria-selected={selectedIndex === index}
+              title={captureTitle}
               onClick={() => onSelectOrder(index)}
             >
               <div className="receipt-orders-item-cols">
@@ -129,6 +143,18 @@ export default function OrderListPanel({
                   {displayUser}
                 </div>
               </div>
+              {captureState != null && (
+                <div className="receipt-orders-item-capture-wrap">
+                  <span className="receipt-orders-item-capture-badge">
+                    {captureState === "Edited" ? "Edited" : "Ready"}
+                  </span>
+                  {lastEditedBy && (
+                    <span className="receipt-orders-item-capture-editor" title={lastEditedBy}>
+                      {lastEditedBy}
+                    </span>
+                  )}
+                </div>
+              )}
             </li>
           );
         })}

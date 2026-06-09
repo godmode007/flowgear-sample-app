@@ -94,6 +94,8 @@ export interface ReceiptConfirmationBody {
   Customer_Alternate_Reference: string | null;
   Delivery_Number: string | null;
   Currency: string | null;
+  Linked_Document_Type?: string | null;
+  Linked_Document_Number?: string | null;
   Date_Details: { Dates: ReceiptConfirmationDate[] };
   Address_Details: { Address: ReceiptConfirmationAddress[] };
   Additional_References: { Reference: ReceiptConfirmationReference[] };
@@ -106,6 +108,9 @@ export interface ReceiptConfirmationPayload {
   Receipt_Confirmation: ReceiptConfirmationBody;
 }
 
+/** Capture state set by PriceCaptureStatus API. */
+export type CaptureState = "Edited" | "ReadyToPost" | "Posted";
+
 /** One row from GET list: payload plus optional base64 copies from workflow. */
 export interface ReceiptOrderListEntry {
   payload: ReceiptConfirmationPayload;
@@ -115,6 +120,12 @@ export interface ReceiptOrderListEntry {
   recordId?: string | null;
   /** Optional display name of user holding server-side lock (from list workflow). */
   currentLockUser?: string | null;
+  /** Capture progress state from PriceCaptureStatus workflow. */
+  captureState?: CaptureState | null;
+  /** Last user to edit prices (from PriceCaptureStatus workflow). */
+  lastEditedBy?: string | null;
+  /** Base64-encoded priced payload saved by PriceCaptureStatus; used to rehydrate editor on reopen. */
+  pricePayloadBase64?: string | null;
 }
 
 /**
@@ -196,7 +207,7 @@ export function getReceiptLineConsolidationKey(
 /** True when the same stock item + lot appears on multiple lines with different hold codes. */
 export function hasDistinctHoldCodesPerItemLot(items: ReceiptConfirmationItem[]): boolean {
   const holdsByItemLot = new Map<string, Set<string>>();
-  for (const item of items) {
+  for (const item of (Array.isArray(items) ? items : [])) {
     if (isZeroOutLine(item)) continue;
     const key = getReceiptLineConsolidationKey(item, { includeHoldCode: false });
     let holds = holdsByItemLot.get(key);
@@ -215,7 +226,7 @@ export function groupReceiptItemsForDisplay(
   options: { includeHoldCode: boolean }
 ): ReceiptConfirmationItem[][] {
   const groups = new Map<string, ReceiptConfirmationItem[]>();
-  for (const item of items) {
+  for (const item of (Array.isArray(items) ? items : [])) {
     const gkey = getReceiptLineConsolidationKey(item, options);
     const existing = groups.get(gkey);
     if (existing == null) groups.set(gkey, [item]);
@@ -259,14 +270,14 @@ export function isZeroOutLine(item: ReceiptConfirmationItem): boolean {
 
 /** True if payload has at least one visible line with Order_Price null (needs editing). ZERO-OUT-LINE items are ignored. */
 export function hasMissingOrderPrice(payload: ReceiptConfirmationPayload): boolean {
-  const items = payload.Receipt_Confirmation.Items ?? [];
+  const items = Array.isArray(payload.Receipt_Confirmation?.Items) ? payload.Receipt_Confirmation.Items : [];
   return items.some(
     (item) => !isZeroOutLine(item) && item.Order_Price == null
   );
 }
 
 export function hasInvalidOrderPrice(payload: ReceiptConfirmationPayload): boolean {
-  const items = payload.Receipt_Confirmation.Items ?? [];
+  const items = Array.isArray(payload.Receipt_Confirmation?.Items) ? payload.Receipt_Confirmation.Items : [];
   return items.some(
     (item) => !isZeroOutLine(item) && item.Order_Price != null && item.Order_Price <= 0
   );
@@ -360,13 +371,16 @@ export function compareReceiptOrdersByDetailDate(
  */
 export function normalizePayloadOrderPriceToRate(entry: ReceiptOrderListEntry): ReceiptOrderListEntry {
   const payload = entry.payload;
+  const items = Array.isArray(payload.Receipt_Confirmation?.Items)
+    ? payload.Receipt_Confirmation.Items
+    : [];
   return {
     ...entry,
     payload: {
       ...payload,
       Receipt_Confirmation: {
         ...payload.Receipt_Confirmation,
-        Items: payload.Receipt_Confirmation.Items.map((item) => {
+        Items: items.map((item) => {
           const gross = item.Gross_Price;
           const total = item.Order_Price;
           const net = item.Net_Weight_Shipped;

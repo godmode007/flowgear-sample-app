@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Building Apps | Flowgear Help Center</title>
+    <meta name="description" content="building-apps" />
+    <meta property="og:title" content="Building Apps | Flowgear Help Center">
+    <meta property="og:description" content="building-apps">
+    <meta property="og:url" content="https://help.flowgear.net/v1/features/building-apps">
+
+    <link rel="shortcut icon" href="/images/favicon.ico" />
+    <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,FILL@20..48,0..1&display=block" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/stackoverflow-light.min.css" />
+    <link rel="stylesheet" href="/css/site.css?v=OuMZ8ow7mL_2s0ywW7PhZEz_bHqzw2TWaSZRjNMOC1k" />
+</head>
+<body>
+    <header b-jlvcac57yy>
+        <nav b-jlvcac57yy class="navbar fg-top-app-bar fg-top-app-bar--light" aria-label="Primary">
+            <div b-jlvcac57yy class="container navbar-container">
+                <div b-jlvcac57yy class="fg-top-app-bar__left">
+                    <a b-jlvcac57yy href="/" class="navbar-brand fg-top-app-bar__brand"><svg class="fg-logo" role="img" aria-label="Flowgear Help Center" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 250.16">
+    <path class="fg-logo-image" d="M89.16,41.85A41.47,41.47,0,0,0,47.74,83.27V157H62.3V133.8a26.89,26.89,0,0,1,26.86-26.86h17.76V92.37H89.16A41.25,41.25,0,0,0,62.3,102.3v-19a26.86,26.86,0,0,1,53.72,0h14.57A41.47,41.47,0,0,0,89.16,41.85Z" />
+    <path class="fg-logo-image" d="M116,92.37v23.21a26.89,26.89,0,0,1-26.86,26.86H71.4V157H89.16A41.25,41.25,0,0,0,116,147.08v19a26.86,26.86,0,0,1-53.72,0H47.74a41.43,41.43,0,0,0,82.85,0V92.37Z" />
+    <path class="fg-logo-text" d="M299.1,161.55c-10.17,0-17.83-7.89-17.83-18.36s7.66-18.5,17.83-18.5,17.83,7.95,17.83,18.5-7.67,18.36-17.83,18.36m0-51.51c-19,0-33.82,14.56-33.82,33.15s14.86,33,33.82,33,33.82-14.5,33.82-33S318.06,110,299.1,110" />
+    <polygon class="fg-logo-text" points="426.54 111.38 410.16 150.34 393.5 111.38 382.38 111.38 365.59 150.34 349.34 111.38 333.34 111.38 360.04 174.86 371.16 174.86 387.94 136.06 404.73 174.86 415.84 174.86 442.54 111.38 426.54 111.38" />
+    <path class="fg-logo-text" d="M495.82,153l-.13.18a19.68,19.68,0,0,1-16.23,8.33c-10.17,0-17.83-7.89-17.83-18.36s7.49-18.5,17.43-18.5A20.6,20.6,0,0,1,495.68,133l.14.19Zm16,18.91V111.38H496.49v6l-1.15-.94a28.94,28.94,0,0,0-18.56-6.4c-17.46,0-31.14,14.56-31.14,33.15a34,34,0,0,0,8,22.28,32,32,0,0,0,24.09,10.73,26.48,26.48,0,0,0,17-5.74l1.14-.87v3.57c0,8-1.18,12.4-4.2,15.73-3,3.55-7.78,5.45-13.77,5.45-10.05,0-16.07-4.73-20.21-9.06l-10,10.38c6.81,7.59,18.86,12.65,30.21,12.65,12.11,0,22.38-4.62,28.2-12.68,4-5.7,5.75-12.78,5.75-23.68" />
+    <path class="fg-logo-text" d="M538.84,134.66c.9-6.6,7.45-12,14.61-12a13.71,13.71,0,0,1,13.54,12l.08.77H538.73Zm33.75,21.71c-2.2,2.22-8.05,7.19-16.33,7.19-9.76,0-17.26-6.59-18.23-16l-.08-.77h45.14a29.47,29.47,0,0,0,.29-4.25c0-18.21-13.15-32.48-29.93-32.48-17.6,0-30.87,14.25-30.87,33.15,0,19.44,13.68,33,33.28,33,9.95,0,19.72-4.16,25.66-10.9Z" />
+    <path class="fg-logo-text" d="M626.23,124.69A20.6,20.6,0,0,1,642.85,133l.14.19V153l-.12.18a19.7,19.7,0,0,1-16.24,8.33c-10.16,0-17.83-7.89-17.83-18.36s7.5-18.5,17.43-18.5m-25.29,40.78a31.86,31.86,0,0,0,23.95,10.73,26.46,26.46,0,0,0,17.61-6.39l1.16-1v6H659V111.38H643.66v6l-1.15-.94A28.91,28.91,0,0,0,624,110c-17.46,0-31.14,14.56-31.14,33.15a34,34,0,0,0,8.12,22.28" />
+    <path class="fg-logo-text" d="M710.26,124.69a29.7,29.7,0,0,1,5.68.49l1.83-14.71a31.09,31.09,0,0,0-5.11-.43c-7.5,0-14.52,2.93-18.31,7.63l-1.26,1.56v-7.85H677.78v63.48h16V134.58l.09-.16c2.16-3.91,8.31-9.73,16.41-9.73" />
+    <path class="fg-logo-text" d="M226.47,111.38H205v-2.71c0-6.23,1-8.73,2.55-10.74,2.25-2.67,5.72-4,10.33-4a23.81,23.81,0,0,1,4.65.51L225,81a39.12,39.12,0,0,0-9.49-1c-7.78,0-14.78,2.63-19.72,7.42-4.66,4.53-6.74,10.9-6.74,20.64v3.38H172.33v13.31h16.72v50.17h16V124.69h21.43Z" />
+    <rect class="fg-logo-text" x="237.86" y="81.28" width="15.98" height="93.59" />
+    <path class="fg-logo-text" d="M742.17,110a10.08,10.08,0,1,1-10,10.1A10.14,10.14,0,0,1,742.17,110Zm.05,17.68a7.6,7.6,0,1,0-7.58-7.58A7.59,7.59,0,0,0,742.22,127.65Zm-3.57-12.43h4.51a3,3,0,0,1,3.11,3.12,3,3,0,0,1-2.12,2.92l2.47,3.47h-2.77l-2.08-3.22H741v3.22h-2.38Zm5.25,3.12c0-1-.74-1.19-1.49-1.19H741v2.38h1.38C743.16,119.53,743.9,119.33,743.9,118.34Z" />
+</svg>
+</a>
+                </div>
+                <form method="get" class="fg-top-app-bar__actions" role="search" action="/search">
+                    <div b-jlvcac57yy class="fg-search-bar">
+                        <label b-jlvcac57yy class="fg-search-bar__field">
+                            <span b-jlvcac57yy class="fg-search-bar__leading-icon" aria-hidden="true">
+                                <svg b-jlvcac57yy width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle b-jlvcac57yy cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.5"></circle>
+                                    <path b-jlvcac57yy d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+                                </svg>
+                            </span>
+                            <input b-jlvcac57yy type="text" class="fg-search-bar__input" name="searchTerm" placeholder="Search for articles..." aria-label="Search for articles" />
+                        </label>
+                        <button b-jlvcac57yy class="fg-search-bar__button fg-search-bar__button--primary" type="submit">Search</button>
+                    </div>
+                </form>
+            </div>
+        </nav>
+    </header>
+    <div b-jlvcac57yy class="container main">
+        <main b-jlvcac57yy role="main">
+            
+<div class="article-content">   <div class="breadcrumbs-container"><div class="breadcrumbs-full"><a class="breadcrumb-home" href="/" aria-label="Home" title="Home"><span class="breadcrumb-symbol" aria-hidden="true">home</span></a><span class="breadcrumb-separator" aria-hidden="true">keyboard_arrow_right</span><a title="V1" class="breadcrumb-link" href="/v1">V1</a><span class="breadcrumb-separator" aria-hidden="true">keyboard_arrow_right</span><a title="Features" class="breadcrumb-link" href="/v1/features">Features</a><span class="breadcrumb-separator" aria-hidden="true">keyboard_arrow_right</span><span class="breadcrumb-current" aria-current="page" title="Building Apps">Building Apps</span></div><div class="breadcrumbs-compact"><a class="breadcrumb-home" href="/" aria-label="Home" title="Home"><span class="breadcrumb-symbol" aria-hidden="true">home</span></a><span class="breadcrumb-separator" aria-hidden="true">keyboard_arrow_right</span><span class="breadcrumb-ellipsis" aria-hidden="true">...</span><span class="breadcrumb-separator" aria-hidden="true">keyboard_arrow_right</span><span class="breadcrumb-current" aria-current="page" title="Building Apps">Building Apps</span></div></div>   <div class="article-layout article-layout--with-toc">      <div class="article-body"><div class="page-route-indicator"><div class="article-badges" aria-label="Current route"><a href="/v1/" class="article-badge article-badge--v1" title="View V1 Articles">V1</a></div></div><h1 id="building-apps"><a href="#building-apps">Building Apps</a></h1>
+<p><div class="iframe-wrapper"><iframe src="https://www.youtube.com/embed/h4NQZ3xn43M"></iframe></div></p>
+<div class="warningBlock"><p>This article is about building apps using the v1 Runtime. We recommend all new apps are built using the v2 Runtime - See <a href="/v2/features/building-apps">Building Apps (v2)</a></p>
+</div>
+<p>Build JavaScript and React apps that embed directly into the Flowgear Console to create rich user experiences. Apps run in an iframe at <code>https://app.flowgear.net</code> and all data access goes through Flowgear Workflows via the SDK.</p>
+<p>Flowgear Apps invoke native and Site-specific APIs through the current user's security context. This lets the web app stay mostly front-end while Workflows provide business logic and data access.</p>
+<p>Use cases you might build:</p>
+<ol>
+<li>Custom dashboards for your integrations</li>
+<li>Utilities to diagnose and resolve integration errors</li>
+<li>Office administrative apps</li>
+</ol>
+<p>The sample app repository can be reached at <a href="https://github.com/Flowgear/flowgear-sample-app" target="_blank">Flowgear Sample App</a> or from your console at: <code>https://app.flowgear.net/#t-{tenantKey}/apps</code> (Settings → Manage Apps → Clone a Sample App).</p>
+<div class="warningBlock"><p><strong>Warning:</strong> Published apps are stored on a publicly accessible blob. Anyone with the URL can access the bundle, so treat it as public. When invoking Workflows, use Cookie-based API Keys tied to the user, not Token-based keys, to avoid unauthorized execution.</p>
+</div>
+<hr />
+<h1 id="requirements"><a href="#requirements">Requirements</a></h1>
+<ol>
+<li>Node.js and npm (<a href="https://nodejs.org/en/download/current" target="_blank">download</a>)</li>
+<li>Visual Studio Code (or another editor)</li>
+<li>Git (if cloning the sample)</li>
+<li>Flowgear permissions:
+<ul>
+<li>To publish an App: <code>app-publisher</code> or <code>account-administrator</code></li>
+<li>To add an App to a Site: <code>site-administrator</code></li>
+<li>To invoke Workflows: create an API Key of type <strong>Cookie</strong> and assign users and Workflows per environment</li>
+</ul>
+</li>
+<li>Valid Flowgear environment hostname configured (Settings → Site settings → Environments → Allowed Origins / Host names)</li>
+<li>NPM packages used by the sample (installed via <code>npm install</code>):
+<ul>
+<li>React 19 + React DOM 19</li>
+<li>Vite 7, TypeScript 5.9, <code>@vitejs/plugin-react</code>, <code>@vitejs/plugin-basic-ssl</code></li>
+<li><code>flowgear-webapp</code> (Flowgear SDK), Bootstrap 5.3, Sass</li>
+</ul>
+</li>
+</ol>
+<h2 id="optional-helper-codex-ai"><a href="#optional-helper-codex-ai">Optional helper: Codex AI</a></h2>
+<ul>
+<li>Use ChatGPT Codex (CLI or VS Code extension) for “vibe coding” with the project automation guidance in <code>AGENTS.md</code>.</li>
+<li>Open <code>AGENTS.md</code> to give Codex the Flowgear-specific rules (always call <code>Flowgear.Sdk.invoke</code> with relative URLs, etc.).</li>
+<li>Codex can read <code>openapi.yml</code> to discover available endpoints; download that file from the Cookie-based API Key detail page in the console and place it in the repo root.</li>
+</ul>
+<hr />
+<h1 id="run-the-sample-app"><a href="#run-the-sample-app">Run the sample app</a></h1>
+<ol>
+<li>Clone the <a href="https://github.com/Flowgear/flowgear-sample-app" target="_blank">Flowgear Sample App</a> repository.</li>
+<li>Run <code>npm install</code> in the project directory.</li>
+<li>Ensure your Site has a Workflow with an API Binding (reach out to support if your domain is not configured). Use relative paths that match the HTTP Binding when invoking.</li>
+<li>Add a Variable Bar with <code>FgResponseBody</code> and sample data such as:
+<pre><code>[
+  { &quot;Id&quot;: 325, &quot;Description&quot;: &quot;Order A1455&quot;, &quot;Status&quot;: &quot;shipped&quot;, &quot;OrderNumber&quot;: &quot;A1455&quot;, &quot;OrderDate&quot;: &quot;2023-10-26&quot;, &quot;OrderTotal&quot;: 500.23 },
+  { &quot;Id&quot;: 328, &quot;Description&quot;: &quot;Order A1458&quot;, &quot;Status&quot;: &quot;placed&quot;, &quot;OrderNumber&quot;: &quot;A1458&quot;, &quot;OrderDate&quot;: &quot;2023-10-27&quot;, &quot;OrderTotal&quot;: 260.5 }
+]
+</code></pre>
+</li>
+<li>Add <code>FgResponseCode</code> = <code>200</code> and <code>FgResponseContentType</code> = <code>application/json</code>, then save the Workflow.</li>
+<li>Create an <strong>API Key of Type Cookie</strong>, assign the allowed users and Workflows per environment.</li>
+<li>Create <code>.env.local</code> in the project root with at least:
+<pre><code>FG_DEV_TENANT=yourTenantKey
+FG_DEV_SITE=yourSiteKey
+FG_DEV_ENVIRONMENT=yourEnvironmentKey
+</code></pre>
+Optional overrides: <code>FG_DEV_PROTOCOL</code> (<code>https</code> default), <code>FG_DEV_HOST</code> (<code>localhost</code>), <code>FG_DEV_PORT</code> (<code>3000</code>).</li>
+<li>Run the dev server:
+<pre><code class="language-bash">npm run dev
+</code></pre>
+</li>
+<li>The dev server uses a self-signed cert via <code>@vitejs/plugin-basic-ssl</code>. Two tabs auto-open:
+<ul>
+<li>Local app URL (accept/trust the certificate here first).</li>
+<li>Flowgear Console debug URL: <code>https://app.flowgear.net/#t-{tenant}/sites/{site}/apps/debug/?debugUrl={encoded-local-url}</code>.</li>
+</ul>
+</li>
+<li>If the app does not load immediately in the console, refresh after trusting the cert.</li>
+</ol>
+<hr />
+<h1 id="building-your-own-app"><a href="#building-your-own-app">Building your own app</a></h1>
+<p>We recommend starting from the sample, but you can bootstrap a new project with Vite + React + TypeScript if preferred:</p>
+<pre><code>npm create vite@latest my-directory -- --template react-ts
+</code></pre>
+<p>Set <code>base: './'</code> in <code>vite.config.*</code> and add <code>@vitejs/plugin-basic-ssl</code> if you need HTTPS locally.</p>
+<h2 id="initializing-the-app"><a href="#initializing-the-app">Initializing the app</a></h2>
+<p>Install the Flowgear SDK:</p>
+<pre><code>npm i flowgear-webapp
+</code></pre>
+<p>In <code>src/main.tsx</code> or <code>src/index.tsx</code> (entry point), register with the console before rendering:</p>
+<pre><code class="language-ts">import { Flowgear } from 'flowgear-webapp';
+
+Flowgear.Sdk.init();
+</code></pre>
+<h2 id="using-the-sdk"><a href="#using-the-sdk">Using the SDK</a></h2>
+<ul>
+<li><code>init()</code> configures messaging between the iframe and the console.</li>
+<li><code>invoke(method, relativeUrl, payload?, headers?, tenant?)</code> calls published Flowgear Workflows. Use the HTTP method and <strong>relative URL</strong> from your HTTP Binding (do not include the base host). No manual auth headers are needed.</li>
+<li>UI helpers: <code>confirmModal</code>, <code>getTextModal</code>, <code>setAlert</code>, <code>openUrl</code>.</li>
+<li>If you hit CORS issues, ensure the environment hostname is listed in Allowed Origins/Hostnames for the Environment.</li>
+</ul>
+<h2 id="debugging-in-the-console"><a href="#debugging-in-the-console">Debugging in the console</a></h2>
+<p>Use the Flowgear debug URL (with your tenant and site keys):</p>
+<pre><code>https://app.flowgear.net/#t-{tenantKey}/sites/{siteKey}/apps/debug/?debugUrl={encoded-local-url}
+</code></pre>
+<p>The sample’s dev server opens this automatically when <code>FG_DEV_TENANT</code> and <code>FG_DEV_SITE</code> are set.</p>
+<hr />
+<h1 id="publishing-your-app"><a href="#publishing-your-app">Publishing your app</a></h1>
+<ol>
+<li>Prepare <code>public/app.json</code> (manifest). Example:
+<pre><code class="language-json">{
+  &quot;Name&quot;: &quot;SampleApp&quot;,
+  &quot;Version&quot;: &quot;1.0.0.0&quot;,
+  &quot;DisplayName&quot;: &quot;Sample App&quot;,
+  &quot;Rank&quot;: 1
+}
+</code></pre>
+<ul>
+<li><code>Name</code> must be globally unique (e.g., <code>your-company.your-app</code>).</li>
+<li>Increment <code>Version</code> every publish.</li>
+<li><code>Rank</code> controls embed order within the console.</li>
+</ul>
+</li>
+<li>Add <code>public/icon.svg</code> (menu + focus icon).</li>
+<li>Build:
+<pre><code class="language-bash">npm run build
+</code></pre>
+</li>
+<li>Zip the <code>dist</code> directory contents (Vite output).</li>
+<li>In Flowgear: <code>Settings → Manage Apps → + Publish App</code>, pick the account, upload the ZIP, submit.</li>
+<li>After publish, open the app entry, add target Sites, and refresh the console to see it embedded.</li>
+</ol>
+</div>      <aside class="article-toc" aria-label="Table of contents">
+<nav class="article-toc-nav" aria-label="Article sections">
+<a class="article-toc-link article-toc-link--h1" href="#building-apps">Building Apps</a>
+<a class="article-toc-link article-toc-link--h1" href="#requirements">Requirements</a>
+<a class="article-toc-link article-toc-link--h2" href="#optional-helper-codex-ai">Optional helper: Codex AI</a>
+<a class="article-toc-link article-toc-link--h1" href="#run-the-sample-app">Run the sample app</a>
+<a class="article-toc-link article-toc-link--h1" href="#building-your-own-app">Building your own app</a>
+<a class="article-toc-link article-toc-link--h2" href="#initializing-the-app">Initializing the app</a>
+<a class="article-toc-link article-toc-link--h2" href="#using-the-sdk">Using the SDK</a>
+<a class="article-toc-link article-toc-link--h2" href="#debugging-in-the-console">Debugging in the console</a>
+<a class="article-toc-link article-toc-link--h1" href="#publishing-your-app">Publishing your app</a>
+</nav>
+</aside>
+   </div></div>
+
+        </main>
+    </div>
+
+    <footer b-jlvcac57yy class="footer text-muted">
+        <div b-jlvcac57yy class="container">
+            &copy; 2026 - Flowgear
+        </div>
+    </footer>
+
+    <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            if (window.hljs) {
+                window.hljs.highlightAll();
+            }
+        });
+    </script>
+    <script src="/js/site.js?v=Lkmc8kFBv_vmhqLzAKXjis-g6jYDu9RbUo2u-v_WAjQ"></script>
+
+    
+</body>
+</html>
