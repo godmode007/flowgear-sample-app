@@ -270,6 +270,28 @@ export async function postToErp(
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e);
     log(`Error: ${errMsg}`);
+    // The Flowgear SDK throws on non-2xx responses rather than returning them.
+    // Try to extract a Flowgear response object from the thrown value so we can
+    // show the actual FgResponseBody error instead of a raw "{}" string.
+    const thrown =
+      e instanceof Error
+        ? (safeParseJson(e.message) as unknown)   // SDK may JSON-stringify the response as the message
+        : e;
+    if (thrown != null && typeof thrown === "object") {
+      const r = thrown as Record<string, unknown>;
+      const fgCode = r.FgResponseCode ?? r.responseCode ?? r.statusCode;
+      const fgBody = typeof r.FgResponseBody === "string" ? r.FgResponseBody
+        : typeof r.responseMessage === "string" ? r.responseMessage
+        : undefined;
+      if (fgCode != null || fgBody != null) {
+        const code = fgCode != null ? String(fgCode) : undefined;
+        log(`Flowgear error response: code=${code ?? "?"}, body=${(fgBody ?? "").slice(0, 200)}`);
+        const errorDetail = (fgBody?.trim().length ?? 0) > 0
+          ? fgBody!.trim()
+          : extractWorkflowErrorMessage(r, fgBody);
+        return { ok: false, statusCode: code, body: undefined, rawKeys: Object.keys(r), errorDetail };
+      }
+    }
     throw e;
   }
 

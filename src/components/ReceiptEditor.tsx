@@ -278,7 +278,19 @@ export default function ReceiptEditor({
         Flowgear.Sdk.setAlert(msg, AlertMessageTypes.Error, AlertDismissOptions.Tap);
       }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Post failed";
+      // Extract as readable a message as possible — the Flowgear SDK may throw
+      // a plain object or a JSON-stringified response rather than a proper Error.
+      let msg = "Post failed";
+      if (e instanceof Error) {
+        msg = e.message.trim() || msg;
+      } else if (e != null && typeof e === "object") {
+        const r = e as Record<string, unknown>;
+        const body = typeof r.FgResponseBody === "string" ? r.FgResponseBody
+          : typeof r.responseMessage === "string" ? r.responseMessage : "";
+        msg = body.trim() || JSON.stringify(e);
+      } else if (typeof e === "string") {
+        msg = e.trim() || msg;
+      }
       setError(msg);
       appendStatus(`Throw: ${msg}`);
       Flowgear.Sdk.setAlert(msg, AlertMessageTypes.Error, AlertDismissOptions.Tap);
