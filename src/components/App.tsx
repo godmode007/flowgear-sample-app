@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { Flowgear, AlertMessageTypes, AlertDismissOptions } from "flowgear-webapp";
+import { Flowgear } from "flowgear-webapp";
+const { AlertMessageTypes, AlertDismissOptions } = Flowgear.Sdk;
 import type { CaptureState, ReceiptOrderListEntry, ReceiptConfirmationPayload } from "../models/receiptConfirmation";
 import {
   normalizePayloadOrderPriceToRate,

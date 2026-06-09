@@ -49,14 +49,6 @@ const STANDALONE_API_URL =
   (typeof import.meta !== "undefined" && (import.meta as { env?: Record<string, string> }).env?.VITE_STANDALONE_API_URL) ||
   "";
 
-/**
- * Flowgear site base URL for direct fetch fallback (e.g. https://cchcysra.flowgear.net).
- * When set, POST to ERP uses fetch+credentials instead of Flowgear.Sdk.invoke so the
- * full plain-text error body is preserved (the SDK's parseErrorResponse discards it).
- * Set via VITE_FLOWGEAR_SITE_URL in .env.
- */
-const FLOWGEAR_SITE_URL =
-  (typeof import.meta !== "undefined" && (import.meta as { env?: Record<string, string> }).env?.VITE_FLOWGEAR_SITE_URL || "").replace(/\/$/, "");
 
 /** Relative URL for per-receipt lock: POST with query ?DashboardId=&Username= (same shape as the prior GET binding). */
 const RECEIPT_LOCK_PATH = "/v2/ReceiptNoPriceLock";
