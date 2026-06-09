@@ -329,8 +329,6 @@ function App() {
 
   const handlePostSuccess = useCallback(() => {
     if (selectedOrder == null) return;
-    const k = ordersListEntryKey(selectedOrder);
-    // Fire-and-forget: mark as Posted on server (needed by support dashboard).
     const id = dashboardRecordId;
     const username = getReceiptLockUsernameForRequest() || "system";
     if (id != null && id.length > 0) {
@@ -339,21 +337,34 @@ function App() {
         username,
         captureState: "Posted",
         pricedPayload: selectedOrder.payload,
-      }).catch(() => { /* non-critical */ });
+      }).then(() => void loadOrders()).catch(() => void loadOrders());
+    } else {
+      void loadOrders();
     }
-    setOrders((prev) => prev.filter((o) => ordersListEntryKey(o) !== k));
-  }, [selectedOrder, dashboardRecordId]);
+  }, [selectedOrder, dashboardRecordId, loadOrders]);
 
-  const selectedOrderKey = selectedOrder != null ? ordersListEntryKey(selectedOrder) : null;
-
-  const handleOrderPayloadChange = useCallback(
-    (payload: ReceiptConfirmationPayload) => {
-      if (selectedOrderKey == null) return;
+  /**
+   * Called by ReceiptEditor on every rate blur/commit — carries the updated payload.
+   * Updates payload + captureState in the list atomically so row colour reflects
+   * current pricing immediately without waiting for navigate-away.
+   */
+  const onRateValueCommitted = useCallback(
+    (updatedPayload: ReceiptConfirmationPayload) => {
+      if (dashboardRecordId == null || dashboardRecordId.length === 0) return;
+      rateEditFlagsRef.current[dashboardRecordId] = true;
+      const captureState: CaptureState =
+        hasMissingOrderPrice(updatedPayload) || hasInvalidOrderPrice(updatedPayload)
+          ? "Edited"
+          : "ReadyToPost";
       setOrders((prev) =>
-        prev.map((o) => (ordersListEntryKey(o) === selectedOrderKey ? { ...o, payload } : o))
+        prev.map((o) =>
+          (o.recordId != null ? String(o.recordId).trim() : null) === dashboardRecordId
+            ? { ...o, payload: updatedPayload, captureState }
+            : o
+        )
       );
     },
-    [selectedOrderKey]
+    [dashboardRecordId]
   );
 
   const serverLockedByOther = useMemo(() => {
@@ -434,11 +445,6 @@ function App() {
     if (editSessionRecordIdRef.current === dashboardRecordId) return;
     void beginEditSession();
   }, [dashboardRecordId, beginEditSession]);
-
-  const onRateValueCommitted = useCallback(() => {
-    if (dashboardRecordId == null || dashboardRecordId.length === 0) return;
-    rateEditFlagsRef.current[dashboardRecordId] = true;
-  }, [dashboardRecordId]);
 
   /** Claim server lock before post when list row has DashboardId (covers pre-filled rates with no keystrokes). */
   const ensureLockBeforePost = useCallback(async (): Promise<boolean> => {
@@ -587,7 +593,6 @@ function App() {
               onEndEditSession={endEditSession}
               editSessionBusy={editSessionBusy}
               receiptListLockUserDisplay={selectedReceiptListLockUser}
-              onPayloadChange={handleOrderPayloadChange}
             />
           </div>
         </main>

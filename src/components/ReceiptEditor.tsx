@@ -39,16 +39,14 @@ interface ReceiptEditorProps {
   dashboardRecordId?: string | null;
   /** Pointer/focus into an editable rate field: request server lock (no payload mutation). */
   onRateFieldFocus?: () => void;
-  /** After blur/Enter commits a rate to the payload — marks row as edited for unlock-on-navigate rules. */
-  onRateValueCommitted?: () => void;
+  /** After blur/Enter commits a rate — carries the updated payload so the list can sync state + colour immediately. */
+  onRateValueCommitted?: (updatedPayload: ReceiptConfirmationPayload) => void;
   ensureLockBeforePost?: () => Promise<boolean>;
   onEndEditSession?: () => void | Promise<void>;
   editSessionBusy?: boolean;
   lockApiDebugLog?: string[];
   /** Workflow / list lock holder for the open receipt (same as Orders "Current user" column). Not the Console sign-in identity. */
   receiptListLockUserDisplay?: string;
-  /** Persist in-progress rates when the user selects another order and returns. */
-  onPayloadChange?: (payload: ReceiptConfirmationPayload) => void;
 }
 
 interface ReceiptDisplayRow {
@@ -83,7 +81,6 @@ export default function ReceiptEditor({
   onEndEditSession,
   editSessionBusy = false,
   receiptListLockUserDisplay = "",
-  onPayloadChange,
 }: ReceiptEditorProps) {
   const [payload, setPayload] = useState<ReceiptConfirmationPayload | null>(initialPayload);
   const [posting, setPosting] = useState(false);
@@ -178,13 +175,12 @@ export default function ReceiptEditor({
             ),
           },
         };
-        onPayloadChange?.(next);
+        onRateValueCommitted?.(next);
         return next;
       });
       setError(null);
-      onRateValueCommitted?.();
     },
-    [onPayloadChange, onRateValueCommitted]
+    [onRateValueCommitted]
   );
 
   async function handlePost() {
