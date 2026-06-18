@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { Flowgear } from "flowgear-webapp";
 
 const { AlertMessageTypes, AlertDismissOptions, GetTextResult } = Flowgear.Sdk;
-import type { ReceiptConfirmationPayload } from "../models/receiptConfirmation";
+import type { AdjustmentPayload, OrderKind, ReceiptConfirmationPayload } from "../models/receiptConfirmation";
 import {
   displayLineUom,
   hasMissingOrderPrice,
@@ -13,8 +13,9 @@ import {
   getItemPackLotDisplay,
   groupReceiptItemsForDisplay,
   hasDistinctHoldCodesPerItemLot,
+  applyRatesToAdjustmentPayload,
 } from "../models/receiptConfirmation";
-import { postToErp, isStandaloneMode } from "../services/payloadService";
+import { postToErp, postAdjustmentToErp, isStandaloneMode } from "../services/payloadService";
 import { sideBySideLineDiff } from "../utils/payloadLineDiff";
 import PayloadDiffComparePanes from "./PayloadDiffComparePanes";
 import ReceiptLineEditor from "./ReceiptLineEditor";
@@ -28,6 +29,10 @@ function round2(n: number): number {
 
 interface ReceiptEditorProps {
   initialPayload: ReceiptConfirmationPayload | null;
+  /** "receipt" posts to Procurement & Inbound; "adjustment" writes Gross_Price and posts to /v2/Adjustments. */
+  kind?: OrderKind;
+  /** Original Adjustment payload (adjustment rows only) — captured prices are written back into this on post. */
+  adjustmentPayload?: AdjustmentPayload | null;
   targetPayloadBase64?: string | null;
   sourcePayloadBase64?: string | null;
   onRefresh?: () => void;
@@ -67,6 +72,8 @@ interface ReceiptDisplayRow {
 
 export default function ReceiptEditor({
   initialPayload,
+  kind = "receipt",
+  adjustmentPayload = null,
   targetPayloadBase64 = null,
   sourcePayloadBase64 = null,
   onRefresh,
@@ -91,6 +98,10 @@ export default function ReceiptEditor({
   const [showTargetPayloadView, setShowTargetPayloadView] = useState(false);
   const [showSourcePayloadView, setShowSourcePayloadView] = useState(false);
   const [showHoldCodeDetails, setShowHoldCodeDetails] = useState(false);
+
+  const isAdjustment = kind === "adjustment";
+  const docLabel = isAdjustment ? "adjustment" : "receipt";
+  const docLabelTitle = isAdjustment ? "Adjustment" : "Receipt";
 
   const decodedTargetPayload = useMemo(
     () => decodePayloadField(targetPayloadBase64),
@@ -217,7 +228,7 @@ export default function ReceiptEditor({
     }
 
     const confirmDetail =
-      "Post this receipt confirmation to ERP with the current rates and quantities?\n\nType Y to confirm.";
+      `Post this ${docLabel} to ERP with the current rates and quantities?\n\nType Y to confirm.`;
     let postConfirmText: string | null = null;
     try {
       const embedded = typeof window !== "undefined" && window.top !== window.self;
@@ -256,7 +267,19 @@ export default function ReceiptEditor({
     setError(null);
     appendStatus("---");
     try {
-      const result = await postToErp(payload, appendStatus);
+      let result;
+      if (isAdjustment && adjustmentPayload != null) {
+        // Capture rates from the editable view and write them into the original
+        // Adjustment as Gross_Price (line total); everything else is sent unchanged.
+        const rates: Record<string, number | null> = {};
+        for (const item of payload.Receipt_Confirmation.Items ?? []) {
+          rates[String(item.Line_No)] = item.Order_Price ?? null;
+        }
+        const pricedAdjustment = applyRatesToAdjustmentPayload(adjustmentPayload, rates);
+        result = await postAdjustmentToErp(pricedAdjustment, appendStatus);
+      } else {
+        result = await postToErp(payload, appendStatus);
+      }
       if (result.ok) {
         try {
           await Promise.resolve(onEndEditSession?.());
@@ -265,7 +288,7 @@ export default function ReceiptEditor({
         }
         const msg = result.needsVerification
           ? "Post submitted — refreshing list to confirm the record was accepted by the ERP."
-          : "Receipt posted to ERP successfully.";
+          : `${docLabelTitle} posted to ERP successfully.`;
         setPostNeedsVerification(result.needsVerification ?? false);
         setPostSuccessMessage(msg);
         setPayload(null);
@@ -448,6 +471,25 @@ export default function ReceiptEditor({
   const rc = payload.Receipt_Confirmation;
   const currentUserDisplay = receiptListLockUserDisplay.trim().length > 0 ? receiptListLockUserDisplay.trim() : "—";
 
+  // Header meta labels follow the record type (the underlying view fields are shared).
+  const headerMetaFields: { label: string; value: string | null | undefined }[] = isAdjustment
+    ? [
+        { label: "Company", value: rc.Company },
+        { label: "Adjustment no", value: rc.Inbound_Receipt_No },
+        { label: "Trading partner", value: rc.Supplier },
+        { label: "Adjustment type", value: rc.Action },
+        { label: "Adjustment code", value: rc.Probill_Number },
+        { label: "Reference", value: rc.Inbound_Reference_No },
+      ]
+    : [
+        { label: "Company", value: rc.Company },
+        { label: "Receipt", value: rc.Inbound_Receipt_No },
+        { label: "Supplier", value: rc.Supplier },
+        { label: "Order type", value: rc.Order_Type },
+        { label: "Probill", value: rc.Probill_Number },
+        { label: "Reference", value: rc.Inbound_Reference_No },
+      ];
+
   return (
     <div className="app-contentarea">
       <div className="receipt-sheet">
@@ -456,26 +498,16 @@ export default function ReceiptEditor({
             <img src={`${import.meta.env.BASE_URL}CCH Logo.png?v=2`} alt="CCH" />
           </div>
           <div className="receipt-sheet-header-content">
-            <h1 className="receipt-sheet-title">Receipt confirmation – Order price entry</h1>
+            <h1 className="receipt-sheet-title">
+              {isAdjustment ? "Adjustment" : "Receipt confirmation"} – Order price entry
+              <span className={`receipt-doc-badge receipt-doc-badge--${kind}`}>{docLabelTitle}</span>
+            </h1>
             <div className="receipt-sheet-meta">
-              <span>
-                <strong>Company</strong> {rc.Company}
-              </span>
-              <span>
-                <strong>Receipt</strong> {rc.Inbound_Receipt_No}
-              </span>
-              <span>
-                <strong>Supplier</strong> {rc.Supplier}
-              </span>
-              <span>
-                <strong>Order type</strong> {rc.Order_Type}
-              </span>
-              <span>
-                <strong>Probill</strong> {rc.Probill_Number}
-              </span>
-              <span>
-                <strong>Reference</strong> {rc.Inbound_Reference_No}
-              </span>
+              {headerMetaFields.map((f) => (
+                <span key={f.label}>
+                  <strong>{f.label}</strong> {f.value}
+                </span>
+              ))}
             </div>
             {(rc.Linked_Document_Type != null || rc.Linked_Document_Number != null) && (
               <div className="receipt-sheet-meta receipt-sheet-meta-extra">

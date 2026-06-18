@@ -111,11 +111,22 @@ export interface ReceiptConfirmationPayload {
 /** Capture state set by PriceCaptureStatus API. */
 export type CaptureState = "Edited" | "ReadyToPost" | "Posted";
 
+/** Whether a list row is a goods receipt or an inventory adjustment. */
+export type OrderKind = "receipt" | "adjustment";
+
 /** One row from GET list: payload plus optional base64 copies from workflow. */
 export interface ReceiptOrderListEntry {
   payload: ReceiptConfirmationPayload;
   targetPayloadBase64: string | null;
   sourcePayloadBase64: string | null;
+  /** "receipt" (Receipt_Confirmation) or "adjustment" (Adjustment). Defaults to "receipt" when absent. */
+  kind?: OrderKind;
+  /**
+   * Original Adjustment payload for adjustment rows. The editable `payload` above is a
+   * Receipt_Confirmation *view* of this; on post we write captured prices back into this
+   * original and send it to /v2/Adjustments unchanged otherwise.
+   */
+  adjustmentPayload?: AdjustmentPayload | null;
   /** Optional row id from workflow (Table metadata); falls back to composite receipt key for locking. */
   recordId?: string | null;
   /** Optional display name of user holding server-side lock (from list workflow). */
@@ -397,6 +408,216 @@ export function normalizePayloadOrderPriceToRate(entry: ReceiptOrderListEntry): 
           return { ...item, Order_Price: rate };
         }),
       },
+    },
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * Inventory Adjustments
+ *
+ * Adjustment records share most of their shape with Receipt_Confirmation
+ * but use a different envelope ({ "Adjustment": {...} }) and field names.
+ * For these we build a Receipt_Confirmation *view* so the existing editor,
+ * list, grouping and locking all work unchanged; on post we write the
+ * captured rate back into the original Adjustment as Gross_Price (a line
+ * total) and send it to /v2/Adjustments.
+ * ------------------------------------------------------------------ */
+
+export interface AdjustmentLineStockDetail {
+  From_Site: string | null;
+  From_Inventory_L3: string | null;
+  From_Hold_Code: string | null;
+  From_Location_Type: string | null;
+  From_Shippable_Indicator: string | null;
+  From_Weight_UOM: string | null;
+  From_Net_Weight_Received: number | string | null;
+  To_Site: string | null;
+  To_Inventory_L3: string | null;
+  To_Hold_Code: string | null;
+  To_Location_Type: string | null;
+  To_Shippable_Indicator: string | null;
+  To_Weight_UOM: string | null;
+  To_Net_Weight_Received: number | string | null;
+}
+
+export interface AdjustmentItem {
+  Line_No: string;
+  Item_Code: string;
+  Item_Description?: string | null;
+  Alternate_Item: string | null;
+  Inventory_Level2: string | null;
+  Inventory_Level3: string | null;
+  Inventory_Level4: string | null;
+  Attribute_1: string | null;
+  Attribute_2: string | null;
+  Attribute_3: string | null;
+  Attribute_4: string | null;
+  Expiry_Date: string | null;
+  Base_UOM: string | null;
+  Adjusted_UOM: string | null;
+  Quantity_Adjusted: number;
+  Weight_Unit_Of_Measure: string | null;
+  Net_Weight_Adjusted: number;
+  Gross_Price: number | null;
+  Adjustment_Reason: string | null;
+  Adjustment_Remarks: string | null;
+  GUID: string;
+  Line_Stock_Details: AdjustmentLineStockDetail[];
+}
+
+export interface AdjustmentBody {
+  Trading_Partner: string;
+  Company: string;
+  Warehouse_Code: string;
+  Adjustment_No: string;
+  Adjustment_Reference_No: string;
+  Adjustment_Code: string;
+  Adjustment_Type_Code: string;
+  GUID: string;
+  Date_Details: ReceiptConfirmationDate[];
+  Items: AdjustmentItem[];
+  Totals: { Total_No_Of_Lines: number | string; Total_Quantity: number };
+}
+
+export interface AdjustmentPayload {
+  Adjustment: AdjustmentBody;
+}
+
+/** Accept any object that has an `Adjustment` key — extra/unknown fields are ignored. */
+export function isAdjustmentPayload(value: unknown): value is AdjustmentPayload {
+  if (value == null || typeof value !== "object") return false;
+  const a = (value as Record<string, unknown>).Adjustment;
+  return a != null && typeof a === "object";
+}
+
+function toNum(v: unknown): number {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
+function toStrOrNull(v: unknown): string | null {
+  if (v == null) return null;
+  if (typeof v === "string") return v;
+  if (typeof v === "number") return String(v);
+  return null;
+}
+
+/**
+ * Whether an adjustment line prices by weight (KG) rather than quantity.
+ * Mirrors displayLineUom so the computed Gross_Price matches the editor's order-price math.
+ */
+export function adjustmentLineUsesWeight(item: AdjustmentItem): boolean {
+  const base = (item.Base_UOM ?? "").trim().toUpperCase();
+  if (base === "Y" || base === "BSKG") return true;
+  if (base === "BSCS") return false;
+  return (item.Weight_Unit_Of_Measure ?? "").trim().toUpperCase() === "KG";
+}
+
+/** Build an editable Receipt_Confirmation view from an Adjustment (display/grouping/editing only). */
+export function adjustmentToReceiptView(adj: AdjustmentPayload): ReceiptConfirmationPayload {
+  const a = adj.Adjustment;
+  const items = Array.isArray(a.Items) ? a.Items : [];
+  return {
+    Receipt_Confirmation: {
+      Trading_Partner: a.Trading_Partner ?? "",
+      Company: a.Company ?? "",
+      Warehouse_Code: a.Warehouse_Code ?? "",
+      Inbound_Reference_No: a.Adjustment_Reference_No ?? "",
+      Purchase_Order_No: null,
+      Probill_Number: a.Adjustment_Code ?? "",
+      Inbound_Receipt_No: a.Adjustment_No ?? "",
+      Order_Type: "Adjustment",
+      Service_Type: null,
+      Action: a.Adjustment_Type_Code ?? "",
+      Comments: null,
+      Supplier: a.Trading_Partner ?? "",
+      Customer_Reference: null,
+      Customer_Alternate_Reference: null,
+      Delivery_Number: null,
+      Currency: null,
+      Date_Details: { Dates: Array.isArray(a.Date_Details) ? a.Date_Details : [] },
+      Address_Details: { Address: [] },
+      Additional_References: { Reference: [] },
+      Shipping_Instructions: { Instructions: null },
+      Items: items.map((it) => {
+        const stock = Array.isArray(it.Line_Stock_Details) ? it.Line_Stock_Details : [];
+        return {
+          Line_No: it.Line_No,
+          Item_Code: it.Item_Code,
+          Item_Description: it.Item_Description ?? null,
+          Alternate_Identifier: it.Alternate_Item ?? null,
+          Inventory_Level2: it.Inventory_Level2 ?? "",
+          Inventory_Level3: it.Inventory_Level3 ?? null,
+          Inventory_Level4: it.Inventory_Level4 ?? "",
+          Attribute_1: it.Attribute_1 ?? null,
+          Attribute_2: it.Attribute_2 ?? null,
+          Attribute_3: it.Attribute_3 ?? null,
+          Attribute_4: it.Attribute_4 ?? null,
+          Expiry_Date: it.Expiry_Date ?? "",
+          Base_UOM: it.Base_UOM ?? "",
+          Unit_Of_Measure: it.Adjusted_UOM ?? "",
+          Quantity: toNum(it.Quantity_Adjusted),
+          Weight_Unit_Of_Measure: it.Weight_Unit_Of_Measure ?? "",
+          Net_Weight_Shipped: toNum(it.Net_Weight_Adjusted),
+          Gross_Price: it.Gross_Price ?? null,
+          Order_Price: null,
+          Remarks: it.Adjustment_Remarks ?? null,
+          Reason_Code: it.Adjustment_Reason ?? "",
+          GUID: it.GUID,
+          Hold_Code: stock[0]?.To_Hold_Code ?? "",
+          Line_Stock_Details: stock.map((s) => ({
+            From_Site: toStrOrNull(s.From_Site),
+            From_Inventory_L3: toStrOrNull(s.From_Inventory_L3),
+            From_Hold_Code: toStrOrNull(s.From_Hold_Code),
+            From_Location_Type: toStrOrNull(s.From_Location_Type),
+            From_Shippable_Indicator: toStrOrNull(s.From_Shippable_Indicator),
+            From_Weight_UOM: toStrOrNull(s.From_Weight_UOM),
+            From_Net_Weight_Received: toStrOrNull(s.From_Net_Weight_Received),
+            To_Site: toStrOrNull(s.To_Site) ?? "",
+            To_Inventory_L3: toStrOrNull(s.To_Inventory_L3) ?? "",
+            To_Hold_Code: toStrOrNull(s.To_Hold_Code),
+            To_Location_Type: toStrOrNull(s.To_Location_Type) ?? "",
+            To_Shippable_Indicator: toStrOrNull(s.To_Shippable_Indicator) ?? "",
+            To_Weight_UOM: toStrOrNull(s.To_Weight_UOM) ?? "",
+            To_Net_Weight_Received: toStrOrNull(s.To_Net_Weight_Received) ?? "",
+          })),
+        };
+      }),
+      Totals: {
+        Total_No_Of_Lines: toNum(a.Totals?.Total_No_Of_Lines),
+        Total_Quantity: toNum(a.Totals?.Total_Quantity),
+      },
+    },
+  };
+}
+
+/**
+ * Writes captured unit rates back into the original Adjustment as Gross_Price (line total).
+ * Gross_Price = rate × (Net_Weight_Adjusted when weight-priced, else Quantity_Adjusted).
+ * All other fields are preserved exactly for posting to /v2/Adjustments.
+ */
+export function applyRatesToAdjustmentPayload(
+  adj: AdjustmentPayload,
+  ratesByLineNo: Record<string, number | null>
+): AdjustmentPayload {
+  const a = adj.Adjustment;
+  const items = Array.isArray(a.Items) ? a.Items : [];
+  return {
+    ...adj,
+    Adjustment: {
+      ...a,
+      Items: items.map((it) => {
+        const rate = ratesByLineNo[String(it.Line_No)];
+        if (rate == null) return it;
+        const basis = adjustmentLineUsesWeight(it)
+          ? toNum(it.Net_Weight_Adjusted)
+          : toNum(it.Quantity_Adjusted);
+        return { ...it, Gross_Price: round2(rate * basis) };
+      }),
     },
   };
 }

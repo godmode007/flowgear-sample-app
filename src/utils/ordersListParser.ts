@@ -3,7 +3,14 @@
  * containing base64-encoded JSON (ReceiptConfirmationPayload).
  * Splits into orders (one payload per Table) and returns them as an array.
  */
-import type { CaptureState, ReceiptConfirmationPayload, ReceiptOrderListEntry } from "../models/receiptConfirmation";
+import type {
+  AdjustmentPayload,
+  CaptureState,
+  OrderKind,
+  ReceiptConfirmationPayload,
+  ReceiptOrderListEntry,
+} from "../models/receiptConfirmation";
+import { adjustmentToReceiptView, isAdjustmentPayload } from "../models/receiptConfirmation";
 
 function safeParseJson(s: string): unknown {
   try {
@@ -18,6 +25,80 @@ function isReceiptPayload(value: unknown): value is ReceiptConfirmationPayload {
   if (value == null || typeof value !== "object") return false;
   const rc = (value as Record<string, unknown>).Receipt_Confirmation;
   return rc != null && typeof rc === "object";
+}
+
+type ResolvedRowPayload = {
+  payload: ReceiptConfirmationPayload;
+  kind: OrderKind;
+  adjustmentPayload: AdjustmentPayload | null;
+  targetPayloadBase64: string | null;
+  sourcePayloadBase64: string | null;
+};
+
+function decodeBase64Json(b64: string | null): unknown {
+  if (b64 == null || b64.trim().length === 0) return undefined;
+  try {
+    return safeParseJson(atob(b64.trim()));
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Resolves a list row's Content/SourcePayload into an editable Receipt_Confirmation payload.
+ * Recognizes both Receipt_Confirmation and Adjustment envelopes. When Content holds a
+ * different format (e.g. a SageX3 target payload), the real payload is taken from SourcePayload
+ * and the raw Content is kept as the "target payload" for the debug viewer.
+ */
+function resolveRowPayload(
+  contentRaw: string | null,
+  sourceRaw: string | null
+): ResolvedRowPayload | null {
+  const contentDecoded = decodeBase64Json(contentRaw);
+  const sourceDecoded = decodeBase64Json(sourceRaw);
+
+  // 1. Content is the primary payload.
+  if (isReceiptPayload(contentDecoded)) {
+    return {
+      payload: contentDecoded,
+      kind: "receipt",
+      adjustmentPayload: null,
+      targetPayloadBase64: null,
+      sourcePayloadBase64: sourceRaw,
+    };
+  }
+  if (isAdjustmentPayload(contentDecoded)) {
+    return {
+      payload: adjustmentToReceiptView(contentDecoded),
+      kind: "adjustment",
+      adjustmentPayload: contentDecoded,
+      targetPayloadBase64: null,
+      sourcePayloadBase64: sourceRaw,
+    };
+  }
+
+  // 2. Content is a different format (e.g. ERP target) — SourcePayload holds the real payload.
+  if (isReceiptPayload(sourceDecoded)) {
+    return {
+      payload: sourceDecoded,
+      kind: "receipt",
+      adjustmentPayload: null,
+      targetPayloadBase64: contentRaw,
+      sourcePayloadBase64: null,
+    };
+  }
+  if (isAdjustmentPayload(sourceDecoded)) {
+    return {
+      payload: adjustmentToReceiptView(sourceDecoded),
+      kind: "adjustment",
+      adjustmentPayload: sourceDecoded,
+      // Keep the source visible so the operator can inspect the original Adjustment JSON.
+      targetPayloadBase64: contentRaw,
+      sourcePayloadBase64: sourceRaw,
+    };
+  }
+
+  return null;
 }
 
 /** Optional metadata siblings under <Table> (besides Content). */
@@ -98,50 +179,17 @@ export function parseResultTableXml(xmlString: string): ReceiptOrderListEntry[] 
         const contentRaw = table.querySelector("Content")?.textContent?.trim() ?? null;
         const sourceRaw = tableSourcePayloadBase64Xml(table);
 
-        // Try Content first as the Receipt_Confirmation payload.
-        // Some workflows store a different format in Content (e.g. purchaseReceipt for SageX3)
-        // and the Receipt_Confirmation payload in SourcePayload — handle both arrangements.
-        let payload: ReceiptConfirmationPayload | null = null;
-        let targetPayloadBase64: string | null = null;
-        let sourcePayloadBase64: string | null = sourceRaw;
-
-        if (contentRaw) {
-          try {
-            const decoded = safeParseJson(atob(contentRaw));
-            if (isReceiptPayload(decoded)) {
-              payload = decoded;
-              targetPayloadBase64 = null;
-            } else {
-              // Content is a different format (e.g. ERP target payload) — try SourcePayload instead.
-              targetPayloadBase64 = contentRaw;
-              sourcePayloadBase64 = null; // SourcePayload becomes the main payload below
-              if (sourceRaw) {
-                try {
-                  const srcDecoded = safeParseJson(atob(sourceRaw));
-                  if (isReceiptPayload(srcDecoded)) payload = srcDecoded;
-                } catch { /* not decodeable */ }
-              }
-            }
-          } catch { /* invalid base64 — try SourcePayload */ }
-        }
-
-        // Last resort: try SourcePayload as main payload if Content didn't yield one.
-        if (payload == null && sourceRaw && sourcePayloadBase64 !== null) {
-          try {
-            const srcDecoded = safeParseJson(atob(sourceRaw));
-            if (isReceiptPayload(srcDecoded)) {
-              payload = srcDecoded;
-              sourcePayloadBase64 = null;
-            }
-          } catch { /* not decodeable */ }
-        }
-
-        if (payload == null) continue; // no usable Receipt_Confirmation payload in this row
+        // Resolve Content/SourcePayload into an editable Receipt_Confirmation view.
+        // Handles Receipt_Confirmation and Adjustment envelopes, in either Content or SourcePayload.
+        const resolved = resolveRowPayload(contentRaw, sourceRaw);
+        if (resolved == null) continue; // no usable Receipt_Confirmation / Adjustment payload in this row
 
         out.push({
-          payload,
-          targetPayloadBase64,
-          sourcePayloadBase64,
+          payload: resolved.payload,
+          targetPayloadBase64: resolved.targetPayloadBase64,
+          sourcePayloadBase64: resolved.sourcePayloadBase64,
+          kind: resolved.kind,
+          adjustmentPayload: resolved.adjustmentPayload,
           recordId: recordId ?? undefined,
           currentLockUser: currentLockUser ?? undefined,
           captureState: parseCaptureState(captureStateRaw),
@@ -248,45 +296,15 @@ export function parseResultTableJson(jsonString: string): ReceiptOrderListEntry[
       const meta = tableRowMeta(row);
       const sourceRaw = tableRowSourceBase64(row);
 
-      let payload: ReceiptConfirmationPayload | null = null;
-      let targetPayloadBase64: string | null = null;
-      let sourcePayloadBase64: string | null = sourceRaw;
-
-      if (contentRaw) {
-        try {
-          const decoded = safeParseJson(atob(contentRaw));
-          if (isReceiptPayload(decoded)) {
-            payload = decoded;
-          } else {
-            // Content is a non-Receipt_Confirmation format — treat as target payload, use SourcePayload instead.
-            targetPayloadBase64 = contentRaw;
-            sourcePayloadBase64 = null;
-            if (sourceRaw) {
-              try {
-                const srcDecoded = safeParseJson(atob(sourceRaw));
-                if (isReceiptPayload(srcDecoded)) payload = srcDecoded;
-              } catch { /* not decodeable */ }
-            }
-          }
-        } catch { /* invalid base64 */ }
-      }
-
-      if (payload == null && sourceRaw && sourcePayloadBase64 !== null) {
-        try {
-          const srcDecoded = safeParseJson(atob(sourceRaw));
-          if (isReceiptPayload(srcDecoded)) {
-            payload = srcDecoded;
-            sourcePayloadBase64 = null;
-          }
-        } catch { /* not decodeable */ }
-      }
-
-      if (payload == null) continue;
+      const resolved = resolveRowPayload(contentRaw.length > 0 ? contentRaw : null, sourceRaw);
+      if (resolved == null) continue;
 
       out.push({
-        payload,
-        targetPayloadBase64,
-        sourcePayloadBase64,
+        payload: resolved.payload,
+        targetPayloadBase64: resolved.targetPayloadBase64,
+        sourcePayloadBase64: resolved.sourcePayloadBase64,
+        kind: resolved.kind,
+        adjustmentPayload: resolved.adjustmentPayload,
         recordId: meta.recordId,
         currentLockUser: meta.currentLockUser,
         captureState: meta.captureState,
@@ -313,14 +331,15 @@ export function parseResultTableJsonRows(jsonString: string): ReceiptOrderListEn
       const row = item as Record<string, unknown>;
       // Support both bare payload arrays and row-wrapper arrays with a Content field.
       if (typeof row.Content === "string" && row.Content.trim().length > 0) {
-        const jsonStr = atob(row.Content.trim());
-        const payload = safeParseJson(jsonStr);
-        if (!isReceiptPayload(payload)) continue;
+        const resolved = resolveRowPayload(row.Content.trim(), tableRowSourceBase64(row));
+        if (resolved == null) continue;
         const meta = tableRowMeta(row);
         out.push({
-          payload,
-          targetPayloadBase64: null,
-          sourcePayloadBase64: tableRowSourceBase64(row),
+          payload: resolved.payload,
+          targetPayloadBase64: resolved.targetPayloadBase64,
+          sourcePayloadBase64: resolved.sourcePayloadBase64,
+          kind: resolved.kind,
+          adjustmentPayload: resolved.adjustmentPayload,
           recordId: meta.recordId,
           currentLockUser: meta.currentLockUser,
           captureState: meta.captureState,
@@ -333,6 +352,22 @@ export function parseResultTableJsonRows(jsonString: string): ReceiptOrderListEn
           payload: item,
           targetPayloadBase64: null,
           sourcePayloadBase64: tableRowSourceBase64(row),
+          kind: "receipt",
+          adjustmentPayload: null,
+          recordId: meta.recordId,
+          currentLockUser: meta.currentLockUser,
+          captureState: meta.captureState,
+          lastEditedBy: meta.lastEditedBy,
+          pricePayloadBase64: meta.pricePayloadBase64,
+        });
+      } else if (isAdjustmentPayload(item)) {
+        const meta = tableRowMeta(row);
+        out.push({
+          payload: adjustmentToReceiptView(item),
+          targetPayloadBase64: null,
+          sourcePayloadBase64: tableRowSourceBase64(row),
+          kind: "adjustment",
+          adjustmentPayload: item,
           recordId: meta.recordId,
           currentLockUser: meta.currentLockUser,
           captureState: meta.captureState,

@@ -597,6 +597,8 @@ function App() {
                   ? applySlimPricePayload(selectedOrder.payload, selectedOrder.pricePayloadBase64)
                   : selectedOrder.payload
               }
+              kind={selectedOrder?.kind ?? "receipt"}
+              adjustmentPayload={selectedOrder?.adjustmentPayload ?? null}
               targetPayloadBase64={selectedOrder?.targetPayloadBase64 ?? null}
               sourcePayloadBase64={selectedOrder?.sourcePayloadBase64 ?? null}
               onRefresh={loadOrders}

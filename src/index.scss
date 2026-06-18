@@ -1863,3 +1863,38 @@ table th.text-align-right {
         outline-offset: 2px;
     }
 }
+/* Document-type badges (Receipt vs Adjustment) */
+.receipt-doc-badge {
+    display: inline-block;
+    margin-left: 0.5rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    vertical-align: middle;
+    background: #e3eefc;
+    color: #1c4e8a;
+}
+.receipt-doc-badge--adjustment {
+    background: #fbe9d6;
+    color: #9a5a13;
+}
+
+.receipt-orders-item-kind {
+    display: inline-block;
+    margin-right: 0.4rem;
+    padding: 0.02rem 0.35rem;
+    border-radius: 4px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    background: #e3eefc;
+    color: #1c4e8a;
+}
+.receipt-orders-item-kind--adjustment {
+    background: #fbe9d6;
+    color: #9a5a13;
+}

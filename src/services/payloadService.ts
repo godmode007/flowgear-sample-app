@@ -1,5 +1,6 @@
 import { Flowgear } from "flowgear-webapp";
 import type {
+  AdjustmentPayload,
   CaptureState,
   ReceiptConfirmationPayload,
   ReceiptOrderListEntry,
@@ -55,6 +56,9 @@ const RECEIPT_LOCK_PATH = "/v2/ReceiptNoPriceLock";
 
 /** Relative path for posting receipt confirmation to Procurement & Inbound (ERP). */
 const POST_PROCUREMENT_INBOUND_PATH = "/v2/ProcurementInbound";
+
+/** Relative path for posting inventory adjustments to the ERP. */
+const POST_ADJUSTMENTS_PATH = "/v2/Adjustments";
 
 /** Relative path for saving price capture progress (Partial / ReadyToPost / Posted). */
 const PRICE_CAPTURE_STATUS_PATH = "/v2/PriceCaptureStatus";
@@ -217,16 +221,48 @@ function extractWorkflowErrorMessage(data: Record<string, unknown>, bodyStr: str
   return undefined;
 }
 
+/** Post a Receipt_Confirmation to the ERP via the Procurement & Inbound workflow. */
 export async function postToErp(
   payload: ReceiptConfirmationPayload,
   onStatus?: PostToErpStatusCallback
 ): Promise<PostToErpResult> {
+  return postPayloadToErp(payload, {
+    flowgearPath: POST_PROCUREMENT_INBOUND_PATH,
+    standaloneSubPath: "/api/post-receipt",
+    onStatus,
+  });
+}
+
+/** Post a priced Adjustment to the ERP via the Adjustments workflow (/v2/Adjustments). */
+export async function postAdjustmentToErp(
+  payload: AdjustmentPayload,
+  onStatus?: PostToErpStatusCallback
+): Promise<PostToErpResult> {
+  return postPayloadToErp(payload, {
+    flowgearPath: POST_ADJUSTMENTS_PATH,
+    standaloneSubPath: "/api/post-adjustment",
+    onStatus,
+  });
+}
+
+/**
+ * Shared ERP post implementation for both receipts and adjustments.
+ * `requestBody` is sent as-is; only the target path differs by document type.
+ */
+async function postPayloadToErp(
+  requestBody: unknown,
+  options: {
+    flowgearPath: string;
+    standaloneSubPath: string;
+    onStatus?: PostToErpStatusCallback;
+  }
+): Promise<PostToErpResult> {
+  const { flowgearPath, standaloneSubPath, onStatus } = options;
   const log = (msg: string) => onStatus?.(msg);
-  const requestBody = payload;
 
   if (isStandaloneMode()) {
     const apiUrl = STANDALONE_API_URL.replace(/\/$/, "");
-    const postUrl = `${apiUrl}/api/post-receipt`;
+    const postUrl = `${apiUrl}${standaloneSubPath}`;
     log(`Standalone mode: POST to ${postUrl}…`);
     log(`Waiting for response (timeout ${POST_TIMEOUT_MS / 1000}s)…`);
     let res: Response;
@@ -269,13 +305,13 @@ export async function postToErp(
     return { ok, statusCode: code, body: parsedBody, rawKeys: Object.keys(data), errorDetail };
   }
 
-  log(`Sending POST to ${POST_PROCUREMENT_INBOUND_PATH} (auth via Console cookie)…`);
+  log(`Sending POST to ${flowgearPath} (auth via Console cookie)…`);
   log(`Waiting for Flowgear response (timeout ${POST_TIMEOUT_MS / 1000}s)…`);
 
   let response: unknown;
   try {
     response = await withTimeout(
-      Flowgear.Sdk.invoke("POST", POST_PROCUREMENT_INBOUND_PATH, requestBody),
+      Flowgear.Sdk.invoke("POST", flowgearPath, requestBody),
       POST_TIMEOUT_MS,
       "Post to ERP timed out. The workflow may still be running; check Flowgear activity log."
     );

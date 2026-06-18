@@ -136,7 +136,15 @@ export default function OrderListPanel({
                   {dateCell.text}
                 </div>
                 <div className="receipt-orders-item-main">
-                  <div className="receipt-orders-item-label">{orderLabel(order)}</div>
+                  <div className="receipt-orders-item-label">
+                    <span
+                      className={`receipt-orders-item-kind receipt-orders-item-kind--${order.kind ?? "receipt"}`}
+                      title={(order.kind ?? "receipt") === "adjustment" ? "Inventory adjustment" : "Goods receipt"}
+                    >
+                      {(order.kind ?? "receipt") === "adjustment" ? "Adjustment" : "Receipt"}
+                    </span>
+                    {orderLabel(order)}
+                  </div>
                   <div className="receipt-orders-item-sub">{orderSubtext(order)}</div>
                 </div>
                 <div className="receipt-orders-item-user" title={displayUser !== "—" ? displayUser : undefined}>
